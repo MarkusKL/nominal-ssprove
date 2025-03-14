@@ -432,26 +432,16 @@ Local Obligation Tactic := notac.
 
 Program Definition A_left p (A : adversary (Transcript (raw_or p)))
   : adversary (Transcript (left p)) :=
-  {module ((A ∘ SHVZK_call p) ∘ (AuxL p || (AuxR p ∘ SHVZK_real (right p)))) }.
+  {adversary _ ; ((A ∘ SHVZK_call p) ∘ (AuxL p || (AuxR p ∘ SHVZK_real (right p)))) }.
 Obligation 1.
   intros p A. nssprove_valid.
-Qed.
-Obligation 2.
-  intros p A.
-  do 2 apply trimmed_link.
-  apply module_trimmed.
 Qed.
 
 Program Definition A_right p (A : adversary (Transcript (raw_or p)))
   : adversary (Transcript (right p)) :=
-  {module ((A ∘ SHVZK_call p) ∘ ((AuxL p ∘ SHVZK_ideal (left p)) || AuxR p)) }.
+  {adversary _ ; ((A ∘ SHVZK_call p) ∘ ((AuxL p ∘ SHVZK_ideal (left p)) || AuxR p)) }.
 Obligation 1.
   intros p A. nssprove_valid.
-Qed.
-Obligation 2.
-  intros p A.
-  do 2 apply trimmed_link.
-  apply module_trimmed.
 Qed.
 
 

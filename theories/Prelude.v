@@ -242,6 +242,8 @@ Qed.
   rewrite rename_let
   : ssprove_code_simpl.
 
+Notation call n S T a
+  := (#import (mkopsig n S T) as F ;; b ← F a ;; ret b).
 
 Notation "'getNone' n ;; c" :=
   ( v ← get n ;;

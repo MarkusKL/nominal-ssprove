@@ -144,19 +144,20 @@ Qed.
 Definition CHOOSE (P : pk_scheme) b :
   module (I_PK_OTSR P) (I_PK_OTS P) :=
   [module no_locs ;
-    #def #[ GET ] (_ : 'unit) : ('pub P) {
-      #import {sig #[ GET ] : 'unit → 'pub P } as GET ;;
-      pk ← GET tt ;;
+    #def #[ GET ] (_ : 'unit)
+        : ('pub P) {
+      pk ← call GET 'unit 'pub P tt ;;
       ret pk
     } ;
-    #def #[ QUERY ] ('(m, m') : 'mes P × 'mes P) : ('cip P) {
-      #import {sig #[ QUERY ] : 'mes P → 'cip P } as QUERY ;;
-      c ← QUERY (if b then m else m') ;;
+    #def #[ QUERY ] ('(m, m')
+        : 'mes P × 'mes P) : ('cip P) {
+      c ← call QUERY ('mes P) ('cip P)
+        (if b then m else m') ;;
       ret c
     }
   ].
 
-Lemma pk_ots_choose {P} b
+Lemma PK_OTS_CHOOSE_perfect {P} b
   : perfect (I_PK_OTS P) (PK_OTS P b) (CHOOSE P b ∘ PK_OTSR P true).
 Proof.
   nssprove_share.
@@ -180,7 +181,7 @@ Proof.
     apply r_refl.
 Qed.
 
-Lemma choose_perf {P} : perfect (I_PK_OTS P)
+Lemma CHOOSE_perfect {P} : perfect (I_PK_OTS P)
   (CHOOSE P true ∘ PK_OTSR P false) (CHOOSE P false ∘ PK_OTSR P false).
 Proof.
   nssprove_share.
@@ -197,41 +198,36 @@ Theorem Adv_PK_OTS_OTSR {P} (A : adversary (I_PK_OTS P)) :
   <= AdvFor (PK_OTSR P) (A ∘ CHOOSE P true)
   +  AdvFor (PK_OTSR P) (A ∘ CHOOSE P false).
 Proof.
-  rewrite (AdvFor_perfect pk_ots_choose).
+  rewrite (AdvFor_perfect PK_OTS_CHOOSE_perfect).
   nssprove_adv_trans (CHOOSE P true ∘ PK_OTSR P false)%sep.
-  rewrite (Adv_perfect_l choose_perf).
-  apply Num.Theory.lerD.
-  + rewrite Adv_sep_link //.
-  + rewrite Adv_sym Adv_sep_link //.
+  rewrite (Adv_perfect_l CHOOSE_perfect).
+  rewrite 2!Adv_sep_link (Adv_sym (PK_OTSR P false)) //.
 Qed.
 
 
 (* CPA > OTS *)
 
-Definition SLIDE (P : pk_scheme) (i n : nat) :
+Definition SLIDE (P : pk_scheme) i n :
   module (I_PK_OTS P) (I_PK_CPA P) :=
   [module fset [:: count_loc ] ;
-    #def #[ GET ] (_ : 'unit) : ('pub P) {
-      #import {sig #[ GET ] : 'unit → 'pub P } as GET ;;
-      pk ← GET tt ;;
+    #def #[ GET ] (_ : 'unit)
+        : ('pub P) {
+      pk ← call GET 'unit ('pub P) tt ;;
       ret pk
     } ;
-    #def #[ QUERY ] ('(m, m') : 'mes P × 'mes P) : ('cip P) {
-      #import {sig #[ GET ] : 'unit → 'pub P } as GET ;;
-      #import {sig #[ QUERY ] : 'mes P × 'mes P → 'cip P } as QUERY ;;
-      pk ← GET tt ;;
+    #def #[ QUERY ] ('(m, m')
+        : 'mes P × 'mes P) : ('cip P) {
+      pk ←  call GET 'unit 'pub P tt ;;
       count ← get count_loc ;;
       #assert (count < n)%N ;;
       #put count_loc := count.+1 ;;
       if (count < i)%N then
-        c ← P.(enc) pk m' ;;
-        ret c
+        c ← P.(enc) pk m' ;; ret c
       else if (i < count)%N then
-        c ← P.(enc) pk m ;;
-        ret c
+        c ← P.(enc) pk m ;; ret c
       else 
-        c ← QUERY (m, m') ;;
-        ret c
+        call QUERY ('mes P × 'mes P)
+          ('cip P) (m, m')
     }
   ].
 
@@ -252,7 +248,7 @@ Proof.
   1: apply put_pre_cond_couple_rhs; [ fset_solve | fset_solve | done ].
 Qed.
 
-Lemma pk_cpa_slide {P n} b : perfect (I_PK_CPA P)
+Lemma PK_CPA_SLIDE_perfect {P n} b : perfect (I_PK_CPA P)
   (PK_CPA P n b) (SLIDE P (if b then 0 else n) n ∘ PK_OTS P true).
 Proof.
   nssprove_share.
@@ -333,7 +329,7 @@ Proof.
       rewrite ltnNge H ltnNge (ltnW H) //.
 Qed.
 
-Lemma slide_succ {P} {n} {i} : perfect (I_PK_CPA P)
+Lemma SLIDE_succ_perfect {P} {n} {i} : perfect (I_PK_CPA P)
   (SLIDE P i n ∘ PK_OTS P false) (SLIDE P i.+1 n ∘ PK_OTS P true).
 Proof.
   nssprove_share.
@@ -495,61 +491,36 @@ Proof.
         rewrite H0 // in H1.
 Qed.
 
-Theorem adv_cpa_ots {P} {n} :
-  ∀ A : adversary (I_PK_CPA P),
-  AdvFor (PK_CPA P n) A <=
-    \sum_(0 <= i < n) AdvFor (PK_OTS P) (A ∘ SLIDE P i n).
+Theorem Adv_PK_CPA_OTS {P} {n} (A : adversary (I_PK_CPA P)) :
+  AdvFor (PK_CPA P n) A <= \sum_(0 <= i < n) AdvFor (PK_OTS P) (A ∘ SLIDE P i n).
 Proof.
-  intros A.
-  rewrite (AdvFor_perfect pk_cpa_slide).
-  elim: {+ 2 4}n => [| i IH ].
+  rewrite (AdvFor_perfect PK_CPA_SLIDE_perfect).
+  elim: {+ 2 4}n => [| j IH ].
   { rewrite Adv_same big_nil //. }
   rewrite big_nat_recr //=.
-  nssprove_adv_trans (SLIDE P i n ∘ PK_OTS P true)%sep.
-  apply Num.Theory.lerD.
-  + apply IH.
-  + rewrite -(Adv_perfect_r slide_succ) Adv_sep_link //.
+  nssprove_adv_trans (SLIDE P j n ∘ PK_OTS P true)%sep.
+  apply Num.Theory.lerD; [ apply IH |].
+  rewrite -(Adv_perfect_r SLIDE_succ_perfect) Adv_sep_link //.
 Qed.
 
-
-Program Definition A_SLIDE P (A : adversary (I_PK_CPA P)) i n
-  : adversary (I_PK_OTS P) :=
-  {module (A ∘ SLIDE P i n)%sep }.
-Obligation 1. apply trimmed_link, module_trimmed. Qed.
-
-Theorem adv_cpa_otsr {P} {n} :
-  ∀ A : adversary (I_PK_CPA P),
-  AdvFor (PK_CPA P n) A <=
-    \sum_(0 <= i < n)
-      ( AdvFor (PK_OTSR P) (A ∘ SLIDE P i n ∘ CHOOSE P true)
-      + AdvFor (PK_OTSR P) (A ∘ SLIDE P i n ∘ CHOOSE P false)).
+Theorem Adv_PK_CPA_OTSR {P} {n} (A : adversary (I_PK_CPA P)) :
+  AdvFor (PK_CPA P n) A <= \sum_(0 <= i < n)
+    ( AdvFor (PK_OTSR P) (A ∘ SLIDE P i n ∘ CHOOSE P true)
+    + AdvFor (PK_OTSR P) (A ∘ SLIDE P i n ∘ CHOOSE P false) ).
 Proof.
-  intros A.
-  eapply Order.le_trans.
-  1: apply adv_cpa_ots.
-  elim: {+ 1 3}n => [| j IH ].
-  { rewrite 2!big_nil //. } 
-  rewrite big_nat_recr //= big_nat_recr //=.
-  apply Num.Theory.lerD.
-  + apply IH.
-  + unfold AdvFor.
-    rewrite 2!(sep_link_assoc A).
-    apply (Adv_PK_OTS_OTSR (A_SLIDE P A j n)).
+  eapply Order.le_trans; [ apply Adv_PK_CPA_OTS |].
+  apply Num.Theory.ler_sum => i _.  rewrite /AdvFor 2!(sep_link_assoc A).
+  apply (Adv_PK_OTS_OTSR {adversary (I_PK_OTS P) ; A ∘ SLIDE P i n }).
 Qed.
 
-Corollary adv_cpa_otsr_p {P} {n} {p} :
-  ∀ A : adversary (I_PK_CPA P),
+Corollary Adv_CPA_OTSR_p {P} {n} {p} (A : adversary (I_PK_CPA P)) :
   (∀ i b, AdvFor (PK_OTSR P) (A ∘ SLIDE P i n ∘ CHOOSE P b) <= p) →
   AdvFor (PK_CPA P n) A <= p *+ 2 *+ n.
 Proof.
-  intros A H.
+  intros H.  eapply Order.le_trans; [ apply Adv_PK_CPA_OTSR |].
   eapply Order.le_trans.
-  1: apply adv_cpa_otsr.
-  eapply Order.le_trans.
-  + apply Num.Theory.ler_sum => i _.
-    apply Num.Theory.lerD; apply H.
-  + rewrite GRing.sumr_const_nat.
-    rewrite -GRing.mulr2n subn0 //.
+  + apply Num.Theory.ler_sum => i _.  apply Num.Theory.lerD; apply H.
+  + rewrite GRing.sumr_const_nat.  rewrite -GRing.mulr2n subn0 //.
 Qed.
 
 End PKReductions.

@@ -940,9 +940,28 @@ Ltac nssprove_valid :=
   nssprove_rec ;
   try (fset_solve; fail).
 
-Notation "{ 'module' m }" :=
-  (Build_module (loc m%sep) (mkpackage m%sep _) _)
+
+Class Trimmed (E : Interface) (p : raw_module) := tr : trimmed E p.
+
+Arguments tr {_ _} _.
+
+Notation "{ 'module' I ; E ; m }" :=
+  (@Build_module I E (loc m%sep) (mkpackage m%sep _) (tr _))
   (only parsing) : sep_scope.
+
+Notation "{ 'game' E ; m }" :=
+  (@Build_module Game_import E (loc m%sep) (mkpackage m%sep _) (tr _))
+  (only parsing) : sep_scope.
+
+Notation "{ 'adversary' I ; m }" :=
+  (@Build_module I A_export (loc m%sep) (mkpackage m%sep _) (tr _))
+  (only parsing) : sep_scope.
+
+Instance Trimmed_link {E P Q} : Trimmed E P → Trimmed E (P ∘ Q)%sep.
+Proof. apply trimmed_link. Qed.
+
+Instance Trimmed_module {I E} {P : module I E} : Trimmed E P.
+Proof. apply module_trimmed. Qed.
 
 
 Lemma valid_idents {L I E} P {V : ValidPackage L I E P} : fsubset (idents E) (domm P).

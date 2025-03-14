@@ -32,14 +32,12 @@ Record pk_scheme :=
   ; Pub : choice_type
   ; Mes : choice_type
   ; Cip : choice_type
-  ; sample_Cip : code fset0 [interface] Cip
-
+  ; sample_Cip :
+    code fset0 [interface] Cip
   ; keygen :
       code fset0 [interface] (Sec × Pub)
-
   ; enc : ∀ (pk : Pub) (m : Mes),
       code fset0 [interface] Cip
-
   ; dec : ∀ (sk : Sec) (c : Cip),
       code fset0 [interface] Mes
   }.
@@ -74,12 +72,14 @@ Notation " 'cip p " := (Cip p)
 Definition ENCDEC := 0%N.
 
 Definition I_CORR (P : pk_scheme) :=
-  [interface #val #[ ENCDEC ] : 'mes P → 'mes P ].
+  [interface #val #[ ENCDEC ]
+    : 'mes P → 'mes P ].
 
 Definition CORR0 (P : pk_scheme) :
   game (I_CORR P) :=
   [module no_locs ;
-    #def #[ ENCDEC ] (m : 'mes P) : ('mes P) {
+    #def #[ ENCDEC ] (m : 'mes P)
+        : ('mes P) {
       '(sk, pk) ← P.(keygen) ;;
       c ← P.(enc) pk m ;;
       m' ← P.(dec) sk c ;;
@@ -90,7 +90,8 @@ Definition CORR0 (P : pk_scheme) :
 Definition CORR1 (P : pk_scheme) :
   game (I_CORR P) :=
   [module no_locs ;
-    #def #[ ENCDEC ] (m : 'mes P) : ('mes P) {
+    #def #[ ENCDEC ] (m : 'mes P)
+        : ('mes P) {
       ret m
     }
   ].
@@ -103,15 +104,15 @@ Definition CORR P b := if b then CORR0 P else CORR1 P.
 Definition init_loc (P : pk_scheme) : Location := ('option ('pub P); 1%N).
 
 Definition init P : raw_code ('pub P) :=
-  locked (mpk ← get init_loc P ;;
-  match mpk with
-  | None => 
-    '(_, pk) ← P.(keygen) ;;
-    #put init_loc P := Some pk ;;
-    ret pk
-  | Some pk =>
-    ret pk
-  end).
+  locked (
+    mpk ← get init_loc P ;;
+    match mpk with
+    | None => 
+      '(_, pk) ← P.(keygen) ;;
+      #put init_loc P := Some pk ;;
+      ret pk
+    | Some pk => ret pk
+    end ).
 
 #[export] Instance init_valid {P} {L : {fset Location}} {I : Interface}
   : init_loc P \in L → ValidCode L I (init P).
@@ -136,12 +137,15 @@ Definition I_PK_OTSR (P : pk_scheme) :=
 
 Definition PK_OTSR (P : pk_scheme) b :
   game (I_PK_OTSR P) :=
-  [module fset [:: init_loc P ; flag_loc ] ;
-    #def #[ GET ] (_ : 'unit) : ('pub P) {
+  [module fset
+    [:: init_loc P ; flag_loc ] ;
+    #def #[ GET ] (_ : 'unit)
+        : ('pub P) {
       pk ← init P ;;
       ret pk
     } ;
-    #def #[ QUERY ] (m : 'mes P) : ('cip P) {
+    #def #[ QUERY ] (m : 'mes P)
+        : ('cip P) {
       pk ← init P ;;
       getNone flag_loc ;;
       #put flag_loc := Some tt ;;
@@ -163,12 +167,15 @@ Definition I_PK_OTS (P : pk_scheme) :=
 
 Definition PK_OTS (P : pk_scheme) b :
   game (I_PK_OTS P) :=
-  [module fset [:: init_loc P ; flag_loc ] ;
-    #def #[ GET ] (_ : 'unit) : ('pub P) {
+  [module fset
+    [:: init_loc P ; flag_loc ] ;
+    #def #[ GET ] (_ : 'unit)
+        : ('pub P) {
       pk ← init P ;;
       ret pk
     } ;
-    #def #[ QUERY ] ('(m, m') : 'mes P × 'mes P) : ('cip P) {
+    #def #[ QUERY ] ('(m, m')
+        : 'mes P × 'mes P) : ('cip P) {
       pk ← init P ;; 
       getNone flag_loc ;;
       #put flag_loc := Some tt ;;
@@ -187,14 +194,17 @@ Definition I_PK_CPA (P : pk_scheme) :=
 
 Definition count_loc : Location := ('nat; 3%N).
 
-Definition PK_CPA (P : pk_scheme) (n : nat) b :
+Definition PK_CPA (P : pk_scheme) n b :
   game (I_PK_CPA P) :=
-  [module fset [:: init_loc P ; count_loc ] ;
-    #def #[ GET ] (_ : 'unit) : ('pub P) {
+  [module fset
+    [:: init_loc P ; count_loc ] ;
+    #def #[ GET ] (_ : 'unit)
+        : ('pub P) {
       pk ← init P ;;
       ret pk
     } ;
-    #def #[ QUERY ] ('(m, m') : 'mes P × 'mes P) : ('cip P) {
+    #def #[ QUERY ] ('(m, m')
+        : 'mes P × 'mes P) : ('cip P) {
       pk ← init P ;;
       count ← get count_loc ;; 
       #assert (count < n)%N ;;

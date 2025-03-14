@@ -62,8 +62,7 @@ Definition elgamal : pk_scheme := {|
   |}.
 
 
-Theorem correct_elgamal :
-  perfect (I_CORR elgamal) (CORR0 elgamal) (CORR1 elgamal).
+Theorem correct_elgamal : perfect (I_CORR elgamal) (CORR0 elgamal) (CORR1 elgamal).
 Proof.
   eapply prove_perfect.
   apply eq_rel_perf_ind_eq.
@@ -80,33 +79,32 @@ Proof.
   rewrite !otf_fto expgAC -mulgA mulgV mulg1 fto_otf //.
 Qed.
 
-
 Notation init' := (
-  mpk ← get PKScheme.init_loc elgamal ;;
+  mpk ← get init_loc elgamal ;;
   match mpk with
   | None => 
-    #import {sig #[ GETA ] : 'unit → 'el } as GETA ;;
-    pk ← GETA tt ;;
-    #put PKScheme.init_loc elgamal := Some pk ;;
+    pk ← call GETA 'unit 'el tt ;;
+    #put init_loc elgamal := Some pk ;;
     ret pk
   | Some pk =>
     ret pk
   end).
 
-
 Definition RED :
   module I_DDH (I_PK_OTSR elgamal) :=
-  [module fset [:: flag_loc; init_loc elgamal ] ;
+  [module fset
+    [:: flag_loc; init_loc elgamal ] ;
     #def #[ GET ] (_ : 'unit) : 'el {
       pk ← init' ;;
       @ret 'el pk
     } ;
-    #def #[ QUERY ] (m : 'el) : 'el × 'el {
-      #import {sig #[ GETBC ] : 'unit → 'el × 'el } as GETBC ;;
+    #def #[ QUERY ] (m : 'el)
+        : 'el × 'el {
       _ ← init' ;;
       getNone flag_loc ;;
       #put flag_loc := Some tt ;;
-      '(r, sh) ← GETBC tt ;;
+      '(r, sh) ← call
+        GETBC 'unit ('el × 'el) tt ;;
       @ret ('el × 'el) (r, op_mul m sh)
     }
   ].
@@ -117,7 +115,7 @@ Notation inv0 := (
       (λ f pk ga, ~~ f → pk = ga)
 ).
 
-Lemma pk_ots_ddh_perf b :
+Lemma PK_OTSR_RED_DDH_perfect b :
   perfect (I_PK_OTSR elgamal) (PK_OTSR elgamal b) (RED ∘ DDH b).
 Proof.
   nssprove_share. eapply prove_perfect.
@@ -217,33 +215,19 @@ Proof.
 Qed.
 
 
-Lemma elgamal_ots
-  : ∀ A : adversary (I_PK_OTSR elgamal),
+Lemma OTSR_elgamal (A : adversary (I_PK_OTSR elgamal)) :
   AdvFor (PK_OTSR elgamal) A = AdvFor DDH (A ∘ RED).
-Proof.
-  intros A.
-  rewrite (AdvFor_perfect pk_ots_ddh_perf).
-  rewrite Adv_sep_link //.
-Qed.
+Proof. rewrite (AdvFor_perfect PK_OTSR_RED_DDH_perfect) Adv_sep_link //. Qed.
 
-Program Definition A_SLIDE_CHOOSE (A : adversary (I_PK_CPA elgamal)) n i b
-  : adversary (I_PK_OTSR elgamal) :=
-  {module (A ∘ SLIDE elgamal i n ∘ CHOOSE elgamal b)%sep }.
-Obligation 1. apply trimmed_link, module_trimmed. Qed.
 
-Theorem elgamal_cpa_p {n} {p}
-  : ∀ A : adversary (I_PK_CPA elgamal),
+Theorem CPA_elgamal {n} {p} (A : adversary (I_PK_CPA elgamal)) :
   (∀ i b, AdvFor DDH (A ∘ SLIDE elgamal i n ∘ CHOOSE elgamal b ∘ RED) <= p) →
   AdvFor (PK_CPA elgamal n) A <= p *+ 2 *+ n.
 Proof.
-  intros A H.
-  apply adv_cpa_otsr_p => i b.
-  eapply le_trans.
-  2: apply (H i b).
-  apply eq_ler.
-  unfold AdvFor.
-  rewrite 2!(sep_link_assoc _ _ RED).
-  apply (elgamal_ots (A_SLIDE_CHOOSE A n i b)).
+  intros H.  apply Adv_CPA_OTSR_p => i b. 
+  eapply le_trans; [ apply eq_ler | apply (H i b) ].
+  rewrite /AdvFor 2!(sep_link_assoc _ _ RED).  apply (OTSR_elgamal
+    {adversary (I_PK_OTSR elgamal) ; A ∘ SLIDE elgamal i n ∘ CHOOSE elgamal b}).
 Qed.
 
 End ElGamal.
