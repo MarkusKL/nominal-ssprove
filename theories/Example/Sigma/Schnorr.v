@@ -51,22 +51,19 @@ Definition raw_schnorr : raw_sigma :=
   {| Statement := 'fin #|el|
    ; Witness := 'fin #|exp|
    ; Message := 'fin #|el|
+   ; State := 'fin #|exp|
    ; Challenge := 'fin #|exp|
    ; Response := 'fin #|exp|
-
-   ; locs := fset [:: commit_loc ]
 
    ; R :=
       (λ h w, otf h == (g ^+ otf w))%bool
    ; commit := λ h w,
      {code
        r ← sample uniform #|exp| ;;
-       #put commit_loc := r ;;
-       ret (fto (g ^+ otf r))
+       ret (fto (g ^+ otf r), r)
      }
-   ; response := λ h w a e,
+   ; response := λ h w a r e,
      {code
-       r ← get commit_loc ;;
        ret (fto (otf r + otf w * otf e))
      }
    ; simulate := λ h e,
@@ -82,25 +79,23 @@ Definition raw_schnorr : raw_sigma :=
 
 #[local] Open Scope package_scope.
 
+(*
 Lemma heap_ignore_locs :
   Invariant raw_schnorr.(locs) fset0 (heap_ignore raw_schnorr.(locs)).
 Proof. ssprove_invariant. apply fsubsetUl. Qed.
+ *)
 
 Theorem schnorr_Correct : Adv_Correct raw_schnorr (λ _, 0).
 Proof.
   intros A.
   apply eq_ler.
   eapply Adv_perf; [| apply module_valid ].
-  eapply (eq_rel_perf_ind _ _ _ heap_ignore_locs).
+  apply eq_rel_perf_ind_eq.
   simplify_eq_rel hwe.
   move: hwe => [[h w] e].
   ssprove_sync => /eqP -> {h}.
   apply r_const_sample_L => [|a].
   1: apply LosslessOp_uniform.
-  ssprove_contract_put_get_lhs.
-  apply r_put_lhs.
-  ssprove_restore_pre.
-  1: ssprove_invariant.
   apply r_ret => s0 s1 H.
   split; [| assumption ].
   apply /eqP.
@@ -123,7 +118,7 @@ Proof.
   intros A.
   apply eq_ler.
   eapply Adv_perf; [| apply module_valid ].
-  eapply (eq_rel_perf_ind _ _ _ heap_ignore_locs).
+  apply eq_rel_perf_ind_eq.
   simplify_eq_rel hwe.
   destruct hwe as [[h w] e].
   rewrite -(fto_otf h) -(fto_otf e).
@@ -131,10 +126,6 @@ Proof.
   rewrite 2!otf_fto.
   ssprove_sync_eq => /eqP -> {h}.
   eapply r_uniform_bij with (1 := bij_f (fto w) (fto e)) => z.
-  ssprove_contract_put_get_lhs.
-  apply r_put_lhs.
-  ssprove_restore_pre.
-  1: ssprove_invariant.
   apply r_ret.
 
   intros s₀ s₁ Hs.

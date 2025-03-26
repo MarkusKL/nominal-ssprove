@@ -72,10 +72,20 @@ Proof. rewrite H. exact id. Defined.
 
 #[global] Hint Unfold Extra_locs Extra_locs_lr : in_fset_eq.
 
+(*
 Definition l p : {fperm atom}
   := fresh (Extra_locs p) p.(left).(locs).
 Definition r p : {fperm atom}
   := fresh (dpair (Extra_locs p) p.(left).(locs)) p.(right).(locs).
+ *)
+
+Definition c0 {A} := chCanonical A.
+
+Notation " 'state p " := (State p)
+  (in custom pack_type at level 2, p constr at level 20).
+
+Notation " 'state p " := (State p)
+  (at level 3) : package_scope.
 
 #[tactic=ssprove_valid]
 Equations raw_or p : raw_sigma :=
@@ -83,15 +93,13 @@ Equations raw_or p : raw_sigma :=
   {| Statement := 'statement p.(left) × 'statement p.(right)
    ; Witness := 'bool × ('witness p.(left) × 'witness p.(right))
    ; Message := 'message p.(left) × 'message p.(right)
+   ; State :=
+       ('state p.(left) × 'challenge p.(left) × 'response p.(left)) ×
+       ('state p.(right) × 'challenge p.(right) × 'response p.(right))
    ; Challenge := 'fin #|exp|
    ; Response :=
        (('challenge p.(left) × 'response p.(left))
        × 'challenge p.(right)) × 'response p.(right)
-
-   ; locs :=
-        Extra_locs p
-         :|: l p ∙ p.(left).(locs)
-         :|: r p ∙ p.(right).(locs)
 
    ; R := λ '(h1, h2) '(wb, (w1, w2)),
        if wb then p.(left).(R) h1 w1 else p.(right).(R) h2 w2
@@ -99,35 +107,27 @@ Equations raw_or p : raw_sigma :=
    ; commit := λ '(h1, h2) '(wb, (w1, w2)),
       {code
         if wb then
-          R1 ← l p ∙ p.(left).(commit) h1 w1 ;;
+          '(R1, st1) ← p.(left).(commit) h1 w1 ;;
           c2 ← sample uniform #|exp| ;;
           let c2 := into p.(right_challenge) c2 in
           '(R2, s2) ← p.(right).(simulate) h2 c2 ;;
-          #put challenge_loc p.(right) := c2 ;;
-          #put response_loc p.(right) := s2 ;;
-          ret (R1, R2)
+          ret ((R1, R2), ((st1, c0, c0), (c0, c2, s2)))
         else
-          R2 ← r p ∙ p.(right).(commit) h2 w2 ;;
+          '(R2, st2) ← p.(right).(commit) h2 w2 ;;
           c1 ← sample uniform #|exp| ;;
           let c1 := into p.(left_challenge) c1 in
           '(R1, s1) ← p.(left).(simulate) h1 c1 ;;
-          #put challenge_loc p.(left) := c1 ;;
-          #put response_loc p.(left) := s1 ;;
-          ret (R1, R2)
+          ret ((R1, R2), ((c0, c1, s1), (st2, c0, c0)))
       }
-   ; response := λ '(h1, h2) '(wb, (w1, w2)) '(a1, a2) c,
+   ; response := λ '(h1, h2) '(wb, (w1, w2)) '(a1, a2) '((st1, c1, s1), (st2, c2, s2)) c,
       {code
         if wb then
-          c2 ← get challenge_loc p.(right) ;;
-          s2 ← get response_loc p.(right) ;;
           let c1 := unpad p c c2 in
-          s1 ← l p ∙ p.(left).(response) h1 w1 a1 c1 ;;
+          s1 ← p.(left).(response) h1 w1 a1 st1 c1 ;;
           ret (c1, s1, c2, s2)
         else
-          c1 ← get challenge_loc p.(left) ;;
-          s1 ← get response_loc p.(left) ;;
           let c2 := pad p c c1 in
-          s2 ← r p ∙ p.(right).(response) h2 w2 a2 c2 ;;
+          s2 ← p.(right).(response) h2 w2 a2 st2 c2 ;;
           ret (c1, s1, c2, s2)
       }
    ; simulate := λ '(h1, h2) c,
@@ -148,10 +148,10 @@ Equations raw_or p : raw_sigma :=
       let '(c1, s1, c2, s2) := z in
       let '(c1', s1', c2', s2') := z' in
       if c1 != c1' then
-        omap (λ w1 : 'witness p.(left), (true, (w1, @chCanonical p.(right).(Witness))))
+        omap (λ w1, (true, (w1, c0)))
           (p.(left).(extractor) h1 R1 c1 c1' s1 s1')
       else
-        omap (λ w2 : 'witness p.(right), (false, (@chCanonical p.(left).(Witness), w2)))
+        omap (λ w2, (false, (c0, w2)))
           (p.(right).(extractor) h2 R2 c2 c2' s2 s2')
   |}.
 
@@ -216,7 +216,7 @@ Definition AuxR p :=
   ].
 
 Definition CALL p (L R : raw_module) : raw_module :=
-  ( (SHVZK_call p) ∘ ( (AuxL p ∘ (l p ∙ L)) || (AuxR p ∘ (r p ∙ R))) )%share.
+  ( (SHVZK_call p) ∘ ( (AuxL p ∘ L) || (AuxR p ∘ R)) )%share.
 
 #[local] Instance call_valid p :
   ∀ (L R : raw_module),
@@ -240,6 +240,7 @@ Definition call_ideal_real p
 Definition call_ideal_ideal p
   := CALL p (SHVZK_ideal p.(left)) (SHVZK_ideal p.(right)).
 
+(*
 Lemma invariant_ignore_extra p :
   Invariant (SHVZK_real (raw_or p)).(loc)
     (call_real_real p).(loc)
@@ -249,6 +250,7 @@ Proof.
   simpl.
   fset_solve.
 Qed.
+ *)
 
 
 Definition iso p (c : 'fin #|exp|) : Arit (uniform #|exp|) → Arit (uniform #|exp|)
@@ -281,94 +283,79 @@ Proof.
 Qed.
 
 
+(*
 Lemma d_left p : disj (l p ∙ p.(left).(locs)) (Extra_locs p).
 Proof.  unfold l.  auto with alpha_db nocore.  Qed.
 
 Lemma d_right p : disj (r p ∙ p.(right).(locs)) (Extra_locs p).
 Proof.  unfold r, dpair.  auto with alpha_db nocore.  Qed.
+ *)
+
+Search "swap" rel_jdg.
+
+Lemma rswap_scheme_scheme_eq :
+  ∀ (A B C : choiceType) (c1 : code no_locs [interface] A) (c2 : code no_locs [interface] B)
+    (r : A → B → raw_code C),
+    ⊢ ⦃ λ '(h₀, h₁), h₀ = h₁ ⦄
+      x ← c1 ;;
+      y ← c2 ;;
+      r x y
+    ≈
+      y ← c2 ;;
+      x ← c1 ;;
+      r x y
+    ⦃ eq ⦄.
+Proof. intros. eapply swap_code; try apply prog_valid; rewrite fdisjoint0s //. Qed.
+
+Hint Extern 10 (⊢ ⦃ _ ⦄ x ← ?s1 ;; y ← ?s2 ;; _ ≈ _ ⦃ _ ⦄) =>
+  eapply rswap_scheme_scheme_eq
+  : ssprove_swap.
 
 Lemma commit_call p :
     SHVZK_real (raw_or p) ≈₀ call_real_real p.
 Proof.
-  eapply eq_rel_perf_ind.
-  1: apply invariant_ignore_extra.
+  eapply eq_rel_perf_ind_eq.
   simplify_eq_rel hwe.
   destruct hwe as [[[h1 h2] [[] [w1 w2]]] c].
-  1,2: simpl; ssprove_code_simpl.
-  1,2: simplify_linking.
-  1,2: ssprove_code_simpl; simpl.
+  1,2: simpl; ssprove_code_simpl; simpl.
   1,2: rewrite !cast_fun_K.
   1,2: ssprove_code_simpl; simpl.
-  + ssprove_swap_lhs 1%N.
-    ssprove_swap_lhs 0%N.
+  1,2: ssprove_code_simpl_more.
+  + ssprove_swap_rhs 0%N.
+    ssprove_sync => _.
+    ssprove_code_simpl; simpl.
+    ssprove_swap_rhs 0%N.
+    apply rsame_head => [[z w]].
     eapply r_uniform_bij with (1 := iso_bij p c) => c2.
 
-    ssprove_code_simpl.
+    eapply rel_jdg_replace_sem_r; [ | apply rswap_scheme_scheme_eq ].
 
     rewrite into_iso pad_unpad.
-    move: (into p.(right_challenge) c2) => {}c2.
-    ssprove_code_simpl_more.
-    ssprove_sync => H.
-    ssprove_code_simpl; simpl.
-    rewrite rename_code. 
-    apply rsame_head_ignore_prog.
-    1: apply supp_fdisjoint, d_left.
-    move => a.
-    ssprove_code_simpl; simpl.
-    eapply rel_jdg_replace_sem_r; simpl.
-    2: eapply swap_code; ssprove_valid; eapply fdisjoint0s.
-    apply rsame_head_ignore_prog; [ fset_solve |].
-    intros [R1 s1].
-    ssprove_swap_lhs 1%N.
-    ssprove_contract_put_get_lhs.
-    apply r_put_lhs.
-    ssprove_contract_put_get_lhs.
-    apply r_put_lhs.
-    ssprove_restore_pre; [ ssprove_invariant |].
-    rewrite rename_code.
-    apply rsame_head_ignore_prog.
-    1: apply supp_fdisjoint, d_left.
-    move=> s2.
+    apply rsame_head => [[a b]].
+    apply rsame_head => v.
     by apply r_ret.
-  + ssprove_swap_lhs 1%N.
-    ssprove_swap_lhs 0%N.
-    ssprove_sync => c1.
-    eapply rel_jdg_replace_sem_r; simpl.
+
+  + eapply rel_jdg_replace_sem_r; simpl.
     2: {
+      ssprove_sync_eq => ?.
       eapply rsame_head => x.
       rewrite destruct_let_pair.
       eapply rreflexivity_rule.
     }
-    ssprove_code_simpl.
     eapply rel_jdg_replace_sem_r; simpl.
-    2: eapply swap_code; ssprove_valid.
-    3: rewrite rename_bind; ssprove_valid; apply valid_ret.
-    2: apply fdisjoints0.
+    2: ssprove_sync_eq => ?.
+    2: eapply swap_code; ssprove_valid; apply (fdisjoint0s fset0).
     ssprove_code_simpl_more.
     ssprove_code_simpl; simpl.
-    ssprove_sync => H.
-    rewrite rename_code.
-    apply rsame_head_ignore_prog.
-    1: apply supp_fdisjoint, d_right.
-    move => vr. 
-
+    ssprove_swap_rhs 0%N.
+    ssprove_sync => ?.
+    ssprove_swap_rhs 0%N.
+    apply rsame_head => [[? ?]].
+    ssprove_sync_eq => ?.
     eapply rel_jdg_replace_sem_r; simpl.
-    2: eapply swap_code; ssprove_valid;
-      [ apply fdisjoint0s | apply valid_ret ].
-
-    apply rsame_head_ignore_prog; [ fset_solve |].
-    intros [R1 z1].
-    ssprove_swap_lhs 1%N.
-    ssprove_contract_put_get_lhs.
-    apply r_put_lhs.
-    ssprove_contract_put_get_lhs.
-    apply r_put_lhs.
-    ssprove_restore_pre; [ ssprove_invariant |].
-    ssprove_code_simpl.
-    rewrite rename_code.
-    apply rsame_head_ignore_prog.
-    1: apply supp_fdisjoint, d_right.
-    intros s2.
+    2: eapply swap_code; ssprove_valid; apply (fdisjoint0s fset0).
+    apply rsame_head => [[? ?]].
+    apply rsame_head => ?.
     by apply r_ret.
 Qed.
 
@@ -389,7 +376,6 @@ Proof.
     ssprove_sync => P.
     ssprove_code_simpl.
     ssprove_code_simpl.
-    rewrite rename_scheme.
     eapply rsame_head => t1.
     move: t1 => [l1 l2].
     simpl.
@@ -402,8 +388,6 @@ Proof.
     3: setoid_rewrite destruct_let_pair; reflexivity.
     2: eapply swap_code.
     3,4: ssprove_valid.
-    3: rewrite rename_bind rename_scheme; ssprove_valid.
-    3: destruct x0; apply valid_ret.
     2: instantiate (1 := fset0); apply fdisjoint0s.
     ssprove_code_simpl_more.
     ssprove_sync => H.
@@ -411,7 +395,6 @@ Proof.
     move: (into p.(left_challenge) cl) => {}cl.
 
     ssprove_code_simpl; simpl.
-    rewrite rename_scheme.
     eapply rel_jdg_replace_sem_l.
     2: ssprove_code_simpl.
     2: eapply rel_jdg_replace_r.
@@ -428,56 +411,43 @@ Proof.
 Qed.
 
 
-Local Obligation Tactic := notac.
+Local Obligation Tactic := intros; nssprove_valid.
 
 Program Definition A_left p (A : adversary (Transcript (raw_or p)))
   : adversary (Transcript (left p)) :=
   {adversary _ ; ((A ∘ SHVZK_call p) ∘ (AuxL p || (AuxR p ∘ SHVZK_real (right p)))) }.
-Obligation 1.
-  intros p A. nssprove_valid.
-Qed.
 
 Program Definition A_right p (A : adversary (Transcript (raw_or p)))
   : adversary (Transcript (right p)) :=
   {adversary _ ; ((A ∘ SHVZK_call p) ∘ ((AuxL p ∘ SHVZK_ideal (left p)) || AuxR p)) }.
-Obligation 1.
-  intros p A. nssprove_valid.
-Qed.
 
+Theorem OR_Correct p (A : adversary (Transcript (raw_or p))) :
+  AdvFor (Correct (raw_or p)) A <=
+    AdvFor (Correct p.(left)) A + AdvFor (Correct p.(right)) A.
+Admitted.
 
-Lemma d_left_right p : disj (l p ∙ p.(left).(locs)) (r p ∙ p.(right).(locs)).
-Proof.  unfold l, r, dpair.  auto with alpha_db nocore.  Qed.
-
-
-Theorem OR_SHVZK p :
-  ∀ ε₁ ε₂ : raw_module → Axioms.R,
-    Adv_SHVZK p.(left) ε₁ →
-    Adv_SHVZK p.(right) ε₂ →
-    Adv_SHVZK (raw_or p) (λ A, ε₁ (A_left p A) + ε₂ (A_right p A)).
+Theorem OR_SHVZK p (A : adversary (Transcript (raw_or p))) :
+  AdvFor (SHVZK (raw_or p)) A <=
+    AdvFor (SHVZK p.(left)) (A_left p A) + AdvFor (SHVZK p.(right)) (A_right p A).
 Proof.
-  intros ε₀ ε₁ AdvL AdvR A.
-  unfold AdvFor, SHVZK.
-  erewrite (Adv_perf_l (commit_call p)).
-  erewrite <- (Adv_perf_r (simulate_call p)).
+  unfold AdvFor.
+  rewrite (Adv_perf_l (commit_call p)).
+  rewrite <- (Adv_perf_r (simulate_call p)).
 
   unfold call_real_real, call_ideal_ideal, CALL.
-  move: (d_left_right p) => H; nssprove_separate.
+  nssprove_separate.
 
   nssprove_adv_trans (call_ideal_real p).
 
   apply lerD.
-  1,2: unfold call_ideal_real, CALL.
-  + move: (d_left p) => {}H; nssprove_separate.
-    rewrite Adv_sep_link.
+  1,2: unfold call_ideal_real, CALL; nssprove_separate.
+  + rewrite Adv_sep_link.
     erewrite @sep_par_game_l, @sep_par_game_l; try nssprove_valid.
-    rewrite Adv_sep_link.
-    apply (AdvL (A_left p A)).
+    by rewrite Adv_sep_link.
 
-  + move: (d_right p) => {}H; nssprove_separate.
-    rewrite Adv_sep_link.
+  + rewrite Adv_sep_link.
     erewrite @sep_par_game_r, @sep_par_game_r; try nssprove_valid.
-    rewrite Adv_sep_link.
-    apply (AdvR (A_right p A)).
+    by rewrite Adv_sep_link.
 Qed.
 
 End SigmaOR.

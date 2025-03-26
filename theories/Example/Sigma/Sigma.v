@@ -28,21 +28,20 @@ Record raw_sigma :=
   { Statement : choice_type
   ; Witness : choice_type
   ; Message : choice_type
+  ; State : choice_type
   ; Challenge : choice_type
   ; Response : choice_type
-
-  ; locs : {fset Location}
 
   ; R : Statement → Witness → bool
 
   ; commit :
     ∀ (h : Statement) (w : Witness),
-      code locs [interface] Message
+      code no_locs [interface] (Message × State)
 
   ; response :
     ∀ (h : Statement) (w : Witness)
-      (a : Message) (e : Challenge),
-      code locs [interface] Response
+      (a : Message) (s : State) (e : Challenge),
+      code no_locs [interface] Response
 
   ; verify :
     ∀ (h : Statement) (a : Message) (e : Challenge)
@@ -51,7 +50,7 @@ Record raw_sigma :=
 
   ; simulate :
     ∀ (h : Statement) (e : Challenge),
-      code fset0 [interface] (Message × Response)
+      code no_locs [interface] (Message × Response)
 
   ; extractor :
     ∀ (h : Statement) (a : Message)
@@ -107,11 +106,11 @@ Definition ICorrect p :=
 
 Definition Correct_real p :
   game (ICorrect p) :=
-  [module p.(locs) ;
+  [module no_locs ;
     #def #[ RUN ] ('(h, w, e) : 'input p) : 'bool {
       #assert p.(R) h w ;;
-      a ← p.(commit) h w ;;
-      z ← p.(response) h w a e ;;
+      '(a, s) ← p.(commit) h w ;;
+      z ← p.(response) h w a s e ;;
       @ret 'bool (p.(verify) h a e z)
     }
   ].
@@ -147,11 +146,11 @@ Notation Transcript p :=
 
 Definition SHVZK_real p :
   game (Transcript p) :=
-  [module p.(locs) ;
+  [module no_locs ;
     #def #[ TRANSCRIPT ] ('(h, w, e) : 'input p) : ('transcript p) {
       #assert p.(R) h w ;;
-      a ← p.(commit) h w ;;
-      z ← p.(response) h w a e ;;
+      '(a, s) ← p.(commit) h w ;;
+      z ← p.(response) h w a s e ;;
       @ret (chTranscript p) (h, a, e, z)
     }
   ].
@@ -197,7 +196,8 @@ Proof.
   ssprove_code_simpl_more.
   ssprove_sync_eq => _.
   ssprove_code_simpl.
-  eapply rsame_head => a.
+  eapply rsame_head => as'.
+  move: as' => [a s].
   eapply rsame_head => z.
   eapply r_ret; auto.
 Qed.
