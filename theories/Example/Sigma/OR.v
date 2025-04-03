@@ -72,12 +72,6 @@ Proof. rewrite H. exact id. Defined.
 
 #[global] Hint Unfold Extra_locs Extra_locs_lr : in_fset_eq.
 
-(*
-Definition l p : {fperm atom}
-  := fresh (Extra_locs p) p.(left).(locs).
-Definition r p : {fperm atom}
-  := fresh (dpair (Extra_locs p) p.(left).(locs)) p.(right).(locs).
- *)
 
 Definition c0 {A} := chCanonical A.
 
@@ -240,18 +234,6 @@ Definition call_ideal_real p
 Definition call_ideal_ideal p
   := CALL p (SHVZK_ideal p.(left)) (SHVZK_ideal p.(right)).
 
-(*
-Lemma invariant_ignore_extra p :
-  Invariant (SHVZK_real (raw_or p)).(loc)
-    (call_real_real p).(loc)
-    (heap_ignore (Extra_locs p)).
-Proof.
-  ssprove_invariant.
-  simpl.
-  fset_solve.
-Qed.
- *)
-
 
 Definition iso p (c : 'fin #|exp|) : Arit (uniform #|exp|) → Arit (uniform #|exp|)
   := λ c2, fto (otf c2 - otf c).
@@ -282,16 +264,6 @@ Proof.
   + rewrite otf_fto addrK fto_otf //.
 Qed.
 
-
-(*
-Lemma d_left p : disj (l p ∙ p.(left).(locs)) (Extra_locs p).
-Proof.  unfold l.  auto with alpha_db nocore.  Qed.
-
-Lemma d_right p : disj (r p ∙ p.(right).(locs)) (Extra_locs p).
-Proof.  unfold r, dpair.  auto with alpha_db nocore.  Qed.
- *)
-
-Search "swap" rel_jdg.
 
 Lemma rswap_scheme_scheme_eq :
   ∀ (A B C : choiceType) (c1 : code no_locs [interface] A) (c2 : code no_locs [interface] B)
