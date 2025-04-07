@@ -13,7 +13,7 @@
         mkCoqDerivation {
           pname = "nominal-ssprove";
           owner = "MarkusKL";
-          version = "1.1.1";
+          version = "1.1.2";
           src = ./.;
           propagatedBuildInputs = [ ssprove ];
           meta = {
