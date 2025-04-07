@@ -393,10 +393,11 @@ Program Definition A_right p (A : adversary (Transcript (raw_or p)))
   : adversary (Transcript (right p)) :=
   {adversary _ ; ((A ∘ SHVZK_call p) ∘ ((AuxL p ∘ SHVZK_ideal (left p)) || AuxR p)) }.
 
+(*
 Theorem OR_Correct p (A : adversary (Transcript (raw_or p))) :
   AdvFor (Correct (raw_or p)) A <=
     AdvFor (Correct p.(left)) A + AdvFor (Correct p.(right)) A.
-Admitted.
+ *)
 
 Theorem OR_SHVZK p (A : adversary (Transcript (raw_or p))) :
   AdvFor (SHVZK (raw_or p)) A <=
