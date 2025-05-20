@@ -10,6 +10,11 @@ theories/Disjoint.v
 theories/Prelude.v
 theories/Tests.v
 
+theories/Std/Template.v
+theories/Std/Math/Group.v
+theories/Std/SKE/Scheme.v
+theories/Std/SKE/OTP.v
+
 theories/Example/PK/Scheme.v
 theories/Example/PK/Reductions.v
 theories/Example/PK/DDH.v
