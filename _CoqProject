@@ -12,8 +12,12 @@ theories/Tests.v
 
 theories/Std/Template.v
 theories/Std/Math/Group.v
+theories/Std/Assumptions/DDH.v
 theories/Std/SKE/Scheme.v
 theories/Std/SKE/OTP.v
+theories/Std/PKE/Scheme.v
+theories/Std/PKE/ElGamal.v
+theories/Std/PKE/Hybrid.v
 
 theories/Example/PK/Scheme.v
 theories/Example/PK/Reductions.v

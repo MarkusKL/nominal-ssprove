@@ -12,7 +12,6 @@ Import GroupScope GRing.Theory.
 Record CyclicGroup := {
   gT : finGroupType ;
   g : gT ;
-  (*g_gen : <[g]> = [set : gT] ;*)
   g_gen : generator [set : gT] g ;
   prime_order : prime #[g]
 }.
@@ -25,6 +24,7 @@ Program Definition Z3 : CyclicGroup :=
 Obligation 1. unfold g. unfold generator. apply /eqP. apply Zp_cycle. Qed.
 Obligation 2. unfold g. rewrite order_Zp1. reflexivity. Qed.
 
+(*
 Program Definition MF3 : CyclicGroup :=
  {| gT := {unit 'F_3} ;
     g := _
@@ -47,34 +47,7 @@ Obligation 3.
   rewrite (@nt_prime_order _ 2); try done.
   rewrite expgnE //=.
 Admitted.
-
-(*
-  Search units_Zp.
-  Search ([ set : _]).
-  Search <[_]> prime.
-  erewrite <- (@nt_gen_prime).
-  Search prime.
-  Search generator.
-  symmetry.
-
-  apply generator.
-  simpl.
-  Search cyclic.
-  apply cycle_cyclic.
-  pose proof (@field_unit_group_cyclic 'F_3).
-  specialize (H
-  Print cyclic.
-  Search cycle.
-  Search {unit _}.
-  apply Zp_cycle.
-  Search subg.
-  Search <[_]>.
-  done.
-
-  unfold g.  rewrite order_Zp1.  reflexivity.
-Qed.
  *)
-
 
 Definition q G : nat := #[g G].
 
@@ -209,18 +182,12 @@ Proof. apply /card_gt0P. by exists 1. Qed.
 Proof. apply /card_gt0P. by exists 0. Qed.
 
 Notation " 'el G " := 'fin #|el G|
-  (G constr, in custom pack_type at level 2).
-
-Notation " 'el G " := 'fin #|el G|
   (at level 3) : package_scope.
-
-Notation " 'exp G " := 'fin #|exp G|
-  (G constr, in custom pack_type at level 2).
 
 Notation " 'exp G " := 'fin #|exp G|
   (at level 3) : package_scope.
 
-Notation " 'g G " := (fto (g G))
+Notation " 'g " := (fto (g _))
   (at level 3) : package_scope.
 
 Notation " x * y " :=
