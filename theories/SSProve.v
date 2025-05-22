@@ -269,7 +269,37 @@ Proof.
   all: easy.
 Qed.
 
-Class Cross (l l' : Location) R pre :=
+
+Definition couple_cross ℓ ℓ' (R : _ → _ → Prop) : precond :=
+  λ '(s₀, s₁), R (get_heap s₀ ℓ) (get_heap s₁ ℓ').
+
+Lemma SemiInvariant_couple_cross :
+  ∀ L₀ L₁ ℓ ℓ' (R : _ → _ → Prop),
+    ℓ \in L₀ :|: L₁ →
+    ℓ' \in L₀ :|: L₁ →
+    R (get_heap empty_heap ℓ) (get_heap empty_heap ℓ') →
+    SemiInvariant L₀ L₁ (couple_cross ℓ ℓ' R).
+Proof.
+  intros L₀ L₁ ℓ ℓ' h hℓ hℓ' he. split.
+  - intros s₀ s₁ l v hl₀ hl₁ ?.
+    assert (hl : l \notin L₀ :|: L₁).
+    { rewrite in_fsetU. rewrite (negbTE hl₀) (negbTE hl₁). reflexivity. }
+    unfold couple_cross.
+    rewrite !get_set_heap_neq.
+    + auto.
+    + apply /negP => /eqP e. subst. rewrite hℓ' in hl. discriminate.
+    + apply /negP => /eqP e. subst. rewrite hℓ in hl. discriminate.
+  - simpl. auto.
+Qed.
+
+Arguments couple_cross : simpl never.
+
+#[export] Hint Extern 10 (SemiInvariant _ _ (couple_cross _ _ _)) =>
+  eapply SemiInvariant_couple_cross
+  : (* typeclass_instances *) ssprove_invariant.
+
+
+Class Cross (l l' : Location) (R : l → l' → Prop) pre :=
   is_cross : ∀ s₀ s₁, pre (s₀, s₁) → R (get_heap s₀ l) (get_heap s₁ l').
 
 Lemma Remembers_Cross {l l'} {a a'} {R} {pre} :
@@ -283,6 +313,10 @@ Proof.
   rewrite -(H1 _ _ H4) -(H2 _ _ H4).
   apply H3, H4.
 Qed.
+
+Lemma Cross_couple_cross {l l' : Location} {R : l → l' → Prop} :
+  Cross l l' R (couple_cross l l' R).
+Proof. done. Qed.
 
 Lemma Cross_conj_right {l l' R} {pre spre : precond} :
   Cross l l' R spre → Cross l l' R (pre ⋊ spre).

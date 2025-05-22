@@ -100,7 +100,7 @@ Proof.
 Qed.
 
 Definition RED :
-  module (I_DDH G) (I_PK_OTSR elgamal) :=
+  module (I_LDDH G) (I_PK_OTSR elgamal) :=
   [module fset
     [:: flag_loc ; mpk_loc elgamal ] ;
     [ INIT ] : { 'unit ~> 'unit } 'tt {
@@ -128,7 +128,7 @@ Notation inv0 := (
 ).
 
 Lemma PK_OTSR_RED_DDH_perfect b :
-  perfect (I_PK_OTSR elgamal) (PK_OTSR elgamal b) (RED ∘ DDH G b).
+  perfect (I_PK_OTSR elgamal) (PK_OTSR elgamal b) (RED ∘ LDDH G b).
 Proof.
   nssprove_share. eapply prove_perfect.
   apply (eq_rel_perf_ind _ _ inv0).
@@ -191,7 +191,7 @@ Proof.
 Qed.
 
 Lemma OTSR_elgamal (A : adversary (I_PK_OTSR elgamal)) :
-  AdvFor (PK_OTSR elgamal) A = AdvFor (DDH G) (A ∘ RED).
+  AdvFor (PK_OTSR elgamal) A = AdvFor (LDDH G) (A ∘ RED).
 Proof. rewrite (AdvFor_perfect PK_OTSR_RED_DDH_perfect) Adv_sep_link //. Qed.
 
 End ElGamal.
