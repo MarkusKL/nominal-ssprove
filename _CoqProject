@@ -14,6 +14,8 @@ theories/Std/Template.v
 theories/Std/Math/Group.v
 theories/Std/Assumptions/Async.v
 theories/Std/Assumptions/DDH.v
+theories/Std/Assumptions/CDH.v
+theories/Std/Assumptions/DL.v
 theories/Std/SKE/Scheme.v
 theories/Std/SKE/OTP.v
 theories/Std/PKE/Scheme.v
