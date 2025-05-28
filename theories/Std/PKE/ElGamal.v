@@ -100,22 +100,19 @@ Proof.
 Qed.
 
 Definition RED :
-  module (I_LDDH G) (I_PK_OTSR elgamal) :=
+  module (I_LDDH G) (I_CPA elgamal) :=
   [module fset
-    [:: flag_loc ; mpk_loc elgamal ] ;
-    [ INIT ] : { 'unit ~> 'unit } 'tt {
+    [:: count_loc ; mpk_loc elgamal ] ;
+    [ GEN ] : { 'unit ~> 'el G } 'tt {
       pk ← (#import [ GETA ] : { 'unit ~> 'el G } tt) ;;
       #put mpk_loc elgamal := Some pk ;;
-      ret tt
-    } ;
-    [ GET ] : { 'unit ~> 'el G } 'tt {
-      pk ← getSome mpk_loc elgamal ;;
-      @ret 'el G pk
+      ret pk
     } ;
     [ QUERY ] : { 'el G ~> 'el G × 'el G } (m) {
+      c ← get count_loc ;;
+      #assert (c < 1) ;;
+      #put count_loc := c.+1;;
       _ ← getSome mpk_loc elgamal ;;
-      getNone flag_loc ;;
-      #put flag_loc := Some tt ;;
       '(r, sh) ← (#import [ GETBC ] : { 'unit ~> 'el G × 'el G } tt) ;;
       @ret ('el G × 'el G) (r, m * sh)%pack
     }
@@ -123,22 +120,16 @@ Definition RED :
 
 Notation inv0 := (
   heap_ignore (fset [:: mga_loc G ])
-  ⋊ triple_rhs flag_loc (mpk_loc elgamal) (mga_loc G)
-      (λ f pk ga, ~~ f → pk = ga)
+  ⋊ triple_rhs count_loc (mpk_loc elgamal) (mga_loc G)
+      (λ c pk ga, c = 0 → pk = ga)
 ).
 
 Lemma PK_OTSR_RED_DDH_perfect b :
-  perfect (I_PK_OTSR elgamal) (PK_OTSR elgamal b) (RED ∘ LDDH G b).
+  perfect (I_CPA elgamal) (OT_CPA elgamal b) (RED ∘ LDDH G b).
 Proof.
   nssprove_share. eapply prove_perfect.
   apply (eq_rel_perf_ind _ _ inv0).
-  1: ssprove_invariant.
-  1-4: simpl.
-  1: fset_solve.
-  1: right; left; fset_solve.
-  1: left; fset_solve.
-  1: right; right; fset_solve.
-  1: done.
+  1: simpl; ssprove_invariant; try auto; fset_solve.
 
   simplify_eq_rel m.
   - destruct m.
@@ -152,27 +143,25 @@ Proof.
     intros h0 h1 H f.
     by get_heap_simpl.
 
-  - destruct m; simpl.
-    ssprove_code_simpl.
-    ssprove_sync => ?.
-    ssprove_sync => ?.
-    by apply r_ret.
-
-  - apply r_get_vs_get_remember.  1: ssprove_invariant.  move=> //= mpk.
+  - apply r_get_vs_get_remember.  1: ssprove_invariant.  move=> c.
     ssprove_code_simpl.
     ssprove_sync => H.
-    destruct mpk as [pk|] => //= {H}.
-    apply r_get_vs_get_remember. 1: ssprove_invariant. move=> //= flag.
-    ssprove_sync => H.
-    destruct flag => //= {H}.
+    ssprove_swap_lhs 0%N.
     ssprove_swap_rhs 0%N.
+    apply r_get_vs_get_remember. 1: ssprove_invariant. move=> mpk.
+    ssprove_code_simpl_more.
+    ssprove_swap_seq_rhs [:: 1%N ; 0%N ].
     apply r_get_remember_rhs => mga.
-    eapply (r_rem_triple_rhs flag_loc (mpk_loc elgamal) (mga_loc G)).
+    eapply (r_rem_triple_rhs count_loc (mpk_loc elgamal) (mga_loc G)).
     1-4: exact _.
     move=> //= H'.
-    rewrite -H' => //= {mga} {H'}.
     apply r_put_vs_put.
+    ssprove_sync => H1.
+    destruct mpk as [pk|] => //= {H1}.
+    destruct c as [|c] => //= {H}.
+    specialize (H' erefl); subst.
     apply r_put_rhs.
+
     ssprove_restore_mem.
     1: {
       ssprove_invariant.
@@ -190,8 +179,8 @@ Proof.
       by eapply r_ret.
 Qed.
 
-Lemma OTSR_elgamal (A : adversary (I_PK_OTSR elgamal)) :
-  AdvFor (PK_OTSR elgamal) A = AdvFor (LDDH G) (A ∘ RED).
+Lemma OT_CPA_elgamal (A : adversary (I_CPA elgamal)) :
+  AdvFor (OT_CPA elgamal) A = AdvFor (LDDH G) (A ∘ RED).
 Proof. rewrite (AdvFor_perfect PK_OTSR_RED_DDH_perfect) Adv_sep_link //. Qed.
 
 End ElGamal.

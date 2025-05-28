@@ -65,36 +65,27 @@ Section Defs.
   Definition CORR b := if b then CORR0 else CORR1.
 
 
-  Definition flag_loc : Location := ('option 'unit; 0%N).
   Definition mpk_loc : Location := ('option P.(Pub); 1%N).
-  Definition INIT := 0%N.
-  Definition GET := 1%N.
-  Definition QUERY := 2%N.
+  Definition GEN := 0%N.
+  Definition QUERY := 1%N.
 
-  Definition I_PK_OTSR :=
+  Definition I_CPA :=
     [interface
-      [ INIT ] : { 'unit ~> 'unit } ;
-      [ GET ] : { 'unit ~> P.(Pub) } ;
+      [ GEN ] : { 'unit ~> P.(Pub) } ;
       [ QUERY ] : { P.(Mes) ~> P.(Cip) }
     ].
 
-  Definition PK_OTSR b :
-    game I_PK_OTSR :=
+  Definition CPA b :
+    game I_CPA :=
     [module fset
-      [:: mpk_loc ; flag_loc ] ;
-      [ INIT ] : { 'unit ~> 'unit } 'tt {
+      [:: mpk_loc ] ;
+      [ GEN ] : { 'unit ~> P.(Pub) } 'tt {
         '(_, pk) ← P.(keygen) ;;
         #put mpk_loc := Some pk ;;
-        ret tt
-      } ;
-      [ GET ] : { 'unit ~> P.(Pub) } 'tt {
-        pk ← getSome mpk_loc ;;
         ret pk
       } ;
       [ QUERY ] : { P.(Mes) ~> P.(Cip) } (m) {
         pk ← getSome mpk_loc ;;
-        getNone flag_loc ;;
-        #put flag_loc := Some tt ;;
         if b then
           P.(enc) pk m
         else
@@ -102,6 +93,25 @@ Section Defs.
       }
     ].
 
+  Definition count_loc : Location := ('nat; 142%N).
+
+  Definition COUNT n :
+    module (I_CPA) (I_CPA) :=
+    [module fset
+      [:: count_loc ] ;
+      [ GEN ] : { 'unit ~> P.(Pub) } 'tt {
+        call GEN 'unit P.(Pub) tt
+      } ;
+      [ QUERY ] : { P.(Mes) ~> P.(Cip) } (m) {
+        count ← get count_loc ;; 
+        #assert (count < n)%N ;;
+        #put count_loc := count.+1 ;;
+        call QUERY P.(Mes) P.(Cip) m
+      }
+    ].
 End Defs.
+
+Notation MT_CPA P n := (λ b, COUNT P n ∘ CPA P b)%sep.
+Notation OT_CPA P := (λ b, COUNT P 1 ∘ CPA P b)%sep.
 
 End PKE.
