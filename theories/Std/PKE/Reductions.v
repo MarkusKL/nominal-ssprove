@@ -19,7 +19,7 @@ From NominalSSP Require Import Prelude.
 Import PackageNotation.
 #[local] Open Scope package_scope.
 
-From NominalSSP.Std Require Import Math.Group Assumptions.DDH PKE.Scheme.
+From NominalSSP.Std Require Import Math.Group Assumptions.DDH PKE.Scheme Hybrid.
 
 Import PKE GroupScope.
 
@@ -168,6 +168,12 @@ Notation inv' i := (
   ⋊ couple_rhs count_loc count_loc' (R i.+1)
 ).
 
+Ltac replace_true e :=
+  replace e with true in * by (symmetry; apply /ltP; lia).
+
+Ltac replace_false e :=
+  replace e with false in * by (symmetry; apply /ltP; lia).
+
 Lemma SLIDE_succ_perfect {n} {i} : perfect (I_CPA P)
   (SLIDE n i ∘ OT_CPA P false) (SLIDE n i.+1 ∘ OT_CPA P true).
 Proof.
@@ -195,7 +201,7 @@ Proof.
     1: ssprove_invariant.
     intros c.
     ssprove_code_simpl.
-    ssprove_sync => H.
+    ssprove_sync => /ltP H.
     ssprove_swap_lhs 0%N; ssprove_swap_rhs 0%N.
     apply r_get_vs_get_remember.
     1: ssprove_invariant.
@@ -203,34 +209,34 @@ Proof.
     ssprove_swap_lhs 0%N; ssprove_swap_rhs 0%N.
     ssprove_sync => H'.
 
-    destruct (c < i)%N eqn:E1.
-    { rewrite ltnS (ltnW E1) bind_ret.
+    destruct (c < i)%N eqn:E1; move: E1 => /ltP E1.
+    { replace_true (c < i.+1).
       apply r_put_vs_put.
+      eapply rsame_head_alt. 1-3: by try apply prog_valid.
+      intros x.
       ssprove_restore_mem.
-      2: eapply r_reflexivity_alt; [ apply prog_valid | |]; done.
-      move: H E1 => /ltP H /ltP E1.
+      2: by apply r_ret.
       ssprove_invariant.
       + move=> h0 h1 //= [[[[H0 H1] _] _] _].
         rewrite /R /couple_lhs H1 in H0 |- *.
         get_heap_simpl.
-        replace (i < c) with false in H0 by (symmetry; apply /ltP; lia).
-        by replace (i < c.+1) with false by (symmetry; apply /ltP; lia).
+        replace_false (i < c).
+        by replace_false (i < c.+1).
       + move=> h0 h1 //= [[[[H0 _] H1] _] _].
         rewrite /R /couple_rhs H1 in H0 |- *.
         get_heap_simpl.
-        replace (i.+1 < c) with false in H0 by (symmetry; apply /ltP; lia).
-        by replace (i.+1 < c.+1) with false by (symmetry; apply /ltP; lia).
+        replace_false (i.+1 < c).
+        by replace_false (i.+1 < c.+1).
     }
-    destruct (c == i)%B eqn:E2.
-    { move: E2 => /eqP ->.
-      rewrite ltnn ltnS leqnn.
+    destruct (c == i)%B eqn:E2; move: E2 => /eqP E2.
+    { subst; replace_false (i < i).
       ssprove_code_simpl.
       ssprove_swap_lhs 0%N.
       apply r_get_remember_lhs => c'.
       eapply (r_rem_couple_lhs count_loc count_loc').
       1-3: exact _.
       rewrite //= /R.
-      replace (i < i) with false by (symmetry; apply /ltP; lia).
+      replace_false (i < i).
       move=> /eqP -> {c'}.
       ssprove_code_simpl_more.
       ssprove_code_simpl.
@@ -243,20 +249,22 @@ Proof.
       apply r_put_vs_put.
       apply r_put_lhs.
       rewrite H' //=.
-      eapply rsame_head_alt.  1-3: by try apply prog_valid.
+      replace_true (i < i.+1).
+      eapply rsame_head_alt. 1-3: by try apply prog_valid.
       intros x.
       ssprove_restore_mem.
       2: by apply r_ret.
       ssprove_invariant.
-      + by replace (eqn (i.+1 - i.+1)%Nrec 0) with true by (symmetry; apply /ltP; lia).
+      + by replace_true (eqn (i.+1 - i.+1)%Nrec 0).
       + move=> h0 h1 //= [[[[[[H0 _] H1] _] _] _] _].
         rewrite /R /couple_rhs H1 in H0 |- *.
         get_heap_simpl.
-        admit.
+        replace_false (eqn (i.+2 - i.+1)%Nrec 0).
+        by replace_false (eqn (i.+2 - i)%Nrec 0).
     }
-    destruct (c == i.+1)%B eqn:E3.
-    { move: E3 => /eqP ->.
-      rewrite ltnn ltnS leqnn.
+    destruct (c == i.+1)%B eqn:E3; move: E3 => /eqP E3.
+    { subst; replace_true (i < i.+1).
+      replace_false (i.+1 < i.+1).
       ssprove_code_simpl.
       ssprove_swap_rhs 0%N.
       apply r_get_remember_rhs => c'.
@@ -281,81 +289,42 @@ Proof.
       ssprove_restore_mem.
       2: by apply r_ret.
       ssprove_invariant.
-      + admit.
-      + by replace (eqn (i.+2 - i.+2)%Nrec 0) with true by (symmetry; apply /ltP; lia).
+      + move=> h0 h1 //= [[[[[[H0 H1] _] _] _] _] _].
+        rewrite /R /couple_lhs H1 in H0 |- *.
+        get_heap_simpl.
+        replace_true (eqn (i.+1 - i.+2)%Nrec 0).
+        by replace_true (eqn (i.+1 - i.+1)%Nrec 0).
+      + by replace_true (eqn (i.+2 - i.+2)%Nrec 0).
     }
-    destruct (c > i.+1)%N eqn:E4.
-    { replace (i < c)%N with true.
-      2: rewrite ltnW //.
-      replace (c < i.+1)%N with false.
-      2: rewrite ltnNge ltnW //.
+    destruct (c > i.+1)%N eqn:E4; move: E4 => /ltP E4; [| lia ].
+    { replace_true (i < c).
+      replace_false (c < i.+1).
       apply r_put_vs_put.
       rewrite bind_ret.
       ssprove_restore_mem.
       2: eapply r_reflexivity_alt; [ apply prog_valid | |]; done.
       ssprove_invariant.
-      + admit.
-      + admit.
+      + move=> h0 h1 //= [[[[H0 H1] _] _] _].
+        rewrite /R /couple_lhs H1 in H0 |- *.
+        get_heap_simpl.
+        replace_true (i < c.+1).
+        by replace_true (i < c).
+      + move=> h0 h1 //= [[[[H0 _] H1] _] _].
+        rewrite /R /couple_rhs H1 in H0 |- *.
+        get_heap_simpl.
+        replace_true (i.+1 < c).
+        by replace_true (i.+1 < c.+1).
     }
-    move: E1 E2 E3 E4 => /ltP E1 /eqP E2 /eqP E3 /ltP E4.
-    lia.
-Admitted.
+Qed.
 
 #[local] Open Scope ring_scope.
 
-Theorem Hybrid_lemma' {I}
-  {G : bool → game I} {A : adversary I} (H : nat → module I I) :
-    (∀ i, perfect I (H i ∘ G false) (H i.+1 ∘ G true)) →
-  ∀ n,
-    Adv (H 0 ∘ G true) (H n ∘ G true) A <= \sum_(0 <= i < n) AdvFor G (A ∘ H i).
-Proof.
-  intros H' n.
-  elim: n => [|j IH].
-  - rewrite Adv_same big_nil //.
-  - rewrite big_nat_recr //=.
-    nssprove_adv_trans (H j ∘ G true)%sep.
-    apply Num.Theory.lerD; [ apply IH |].
-    rewrite -(Adv_perfect_r (H' j)) Adv_sep_link //.
-Qed.
-
-Theorem Hybrid_lemma {I}
-  {G : nat → bool → game I} {A : adversary I} (H : nat → module I I) :
-    (∀ i, perfect I (H i ∘ G 1 false) (H i.+1 ∘ G 1 true)) →
-  ∀ n,
-    perfect I (G n true) (H 0 ∘ G 1 true) →
-    perfect I (G n false) (H n ∘ G 1 true) →
-    AdvFor (G n) A <= \sum_(0 <= i < n) AdvFor (G 1) (A ∘ H i).
-Proof.
-  intros H' n Hl Hr.
-  rewrite /AdvFor (Adv_perfect_l Hl) (Adv_perfect_r Hr).
-  clear Hl Hr.
-  apply: (Hybrid_lemma' H).
-  apply H'.
-Qed.
-
-Theorem Hybrid_lemma_any {I} {p}
-  {G : nat → bool → game I} {A : adversary I} (H : nat → module I I) :
-    (∀ i, perfect I (H i ∘ G 1 false) (H i.+1 ∘ G 1 true)) →
-    (∀ i, AdvFor (G 1) (A ∘ H i) <= p) →
-  ∀ n,
-    perfect I (G n true) (H 0 ∘ G 1 true) →
-    perfect I (G n false) (H n ∘ G 1 true) →
-    AdvFor (G n) A <= p *+ n.
-Proof.
-  intros H1 H2 n H3 H4.
-  eapply Order.le_trans; [ apply Hybrid_lemma |].
-  1: apply H1.
-  1: apply H3.
-  1: apply H4.
-  eapply Order.le_trans.
-  - apply Num.Theory.ler_sum => i _. apply H2.
-  - rewrite GRing.sumr_const_nat subn0 //.
-Qed.
-
 Theorem Adv_CPA_OT {n} (A : adversary (I_CPA P)) :
-  AdvFor (MT_CPA P n) A <= \sum_(0 <= i < n) AdvFor (OT_CPA P) (A ∘ SLIDE n i).
+  AdvFor (MT_CPA P n) A <= \sum_(i < n) AdvFor (OT_CPA P) (A ∘ SLIDE n i).
 Proof.
-  apply: (@Hybrid_lemma _ (λ n b, {game _ ; MT_CPA P n b }) A (SLIDE n)).
+  apply: (@hybrid_reduction _ A (λ n b, {game _ ; MT_CPA P n b }) (SLIDE n)).
   2,3: apply: PK_CPA_SLIDE_perfect.
   apply: @SLIDE_succ_perfect.
 Qed.
+
+End Reductions.

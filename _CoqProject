@@ -18,7 +18,9 @@ theories/Std/Assumptions/CDH.v
 theories/Std/Assumptions/DL.v
 theories/Std/SKE/Scheme.v
 theories/Std/SKE/OTP.v
+theories/Std/Hybrid.v
 theories/Std/PKE/Scheme.v
+theories/Std/PKE/Reductions.v
 theories/Std/PKE/ElGamal.v
 theories/Std/PKE/Hybrid.v
 

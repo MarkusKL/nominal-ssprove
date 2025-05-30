@@ -1,5 +1,7 @@
 Set Warnings "-notation-overridden,-ambiguous-paths".
-From mathcomp Require Import all_ssreflect all_algebra fingroup.
+From mathcomp Require Import all_ssreflect all_algebra reals distr realsum
+  fingroup.fingroup solvable.cyclic prime ssrnat ssreflect ssrfun ssrbool ssrnum
+  eqtype choice seq.
 Set Warnings "notation-overridden,ambiguous-paths".
 
 From Coq Require Import Utf8.
@@ -17,7 +19,8 @@ From NominalSSP Require Import Prelude.
 Import PackageNotation.
 #[local] Open Scope package_scope.
 
-From NominalSSP.Std Require Import Math.Group Assumptions.DDH PKE.Scheme.
+From NominalSSP.Std Require Import Math.Group Assumptions.DDH
+  PKE.Scheme PKE.Reductions.
 
 Import PKE GroupScope.
 
@@ -182,5 +185,18 @@ Qed.
 Lemma OT_CPA_elgamal (A : adversary (I_CPA elgamal)) :
   AdvFor (OT_CPA elgamal) A = AdvFor (LDDH G) (A ∘ RED).
 Proof. rewrite (AdvFor_perfect PK_OTSR_RED_DDH_perfect) Adv_sep_link //. Qed.
+
+#[local] Open Scope ring_scope.
+
+Theorem MT_CPA_elgamal (A : adversary (I_CPA elgamal)) n :
+  AdvFor (MT_CPA elgamal n) A
+    <= \sum_(i < n) AdvFor (LDDH G) (A ∘ SLIDE elgamal n i ∘ RED).
+Proof.
+  eapply Order.le_trans.
+  1: apply: Adv_CPA_OT.
+  apply Num.Theory.ler_sum => i _.
+  rewrite /AdvFor sep_link_assoc.
+  apply eq_ler, (OT_CPA_elgamal {adversary _ ; A ∘ SLIDE elgamal n i}).
+Qed.
 
 End ElGamal.
