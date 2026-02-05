@@ -1,3 +1,6 @@
+(* This file is based on the KEM-DEM example given in SSProve.
+   https://github.com/SSProve/ssprove/blob/main/theories/Crypt/examples/KEMDEM.v
+ *)
 (** KEM-DEM example
 
   In this example, we follow the original SSP paper available at:
@@ -8,32 +11,7 @@
   its security relative to that of the KEM and the DEM.
 *)
 
-Set Warnings "-notation-overridden,-ambiguous-paths,-notation-incompatible-format".
-From mathcomp Require Import all_ssreflect all_algebra reals distr
-  fingroup.fingroup realsum ssrnat ssreflect ssrfun ssrbool ssrnum eqtype choice
-  seq.
-Set Warnings "notation-overridden,ambiguous-paths,notation-incompatible-format".
-
-From Coq Require Import Utf8 Lia.
-From extructures Require Import ord fset fmap.
-
-From Equations Require Import Equations.
-Require Equations.Prop.DepElim.
-
-Set Equations With UIP.
-
-Set Bullet Behavior "Strict Subproofs".
-Set Default Goal Selector "!".
-Set Primitive Projections.
-
-From NominalSSP Require Import Prelude.
-Import Num.Def Num.Theory Order.POrderTheory.
-Import PackageNotation.
-#[local] Open Scope ring_scope.
-#[local] Open Scope package_scope.
-#[local] Open Scope share_scope.
-#[local] Open Scope sep_scope.
-
+From NominalSSP Require Import Options Misc.
 
 Section KEMDEM.
 
@@ -103,20 +81,20 @@ Section KEMDEM.
   Definition PKDEC := 5%N.
 
   (** Memory locations *)
-  Definition k_loc : Location := ('option key ; 0%N).
-  Definition pk_loc : Location := ('option pkey ; 1%N).
-  Definition sk_loc : Location := ('option skey ; 2%N).
-  Definition ek_loc : Location := ('option ekey ; 3%N).
-  Definition c_loc : Location := ('option cipher ; 4%N).
+  Definition k_loc : Location := mkloc 0 (None : option key).
+  Definition pk_loc : Location := mkloc 1 (None : option pkey).
+  Definition sk_loc : Location := mkloc 2 (None : option skey).
+  Definition ek_loc : Location := mkloc 3 (None : option ekey).
+  Definition c_loc : Location := mkloc 4 (None : option cipher).
 
-  Definition pk_m_loc : Location := ('option pkey ; 5%N).
-  Definition ek_m_loc : Location := ('option ekey ; 6%N).
-  Definition c_m_loc : Location := ('option cipher ; 7%N).
+  Definition pk_m_loc : Location := mkloc 5 (None : option pkey).
+  Definition ek_m_loc : Location := mkloc 6 (None : option ekey).
+  Definition c_m_loc : Location := mkloc 7 (None : option cipher).
 
   (** Some shorthands *)
-  Definition IGEN := [interface [ GEN ] : {'unit ~> 'unit} ].
-  Definition ISET := [interface [ SET ] : { key  ~> 'unit} ].
-  Definition IGET := [interface [ GET ] : {'unit ~>  key } ].
+  Definition IGEN := [interface [ GEN ] : { unit ~> unit } ].
+  Definition ISET := [interface [ SET ] : { key  ~> unit } ].
+  Definition IGET := [interface [ GET ] : { unit ~> key  } ].
 
   (** PKE scheme
 
@@ -128,8 +106,8 @@ Section KEMDEM.
   *)
 
   Record PKE_scheme := {
-    PKE_kgen : code fset0 [interface] (pkey × skey) ;
-    PKE_enc : pkey → plain → code fset0 [interface] (ekey × cipher) ;
+    PKE_kgen : dist (pkey × skey) ;
+    PKE_enc : pkey → plain → dist (ekey × cipher) ;
     PKE_dec : skey → chProd ekey cipher → plain
   }.
 
@@ -141,8 +119,8 @@ Section KEMDEM.
   *)
 
   Record KEM_scheme := {
-    KEM_kgen : code fset0 [interface] (pkey × skey) ;
-    KEM_encap : pkey → code fset0 [interface] (key × ekey) ;
+    KEM_kgen : dist (pkey × skey) ;
+    KEM_encap : pkey → dist (key × ekey) ;
     KEM_decap : skey → ekey → key
   }.
 
@@ -188,7 +166,7 @@ Section KEMDEM.
     stored key.
   *)
   Definition KEY_loc :=
-    fset [:: k_loc ].
+    [fmap k_loc ].
 
   (** Similarly, we define the export / output interface of the KEY package.
 
@@ -198,28 +176,28 @@ Section KEMDEM.
   *)
   Definition KEY_out :=
     [interface
-      [ GEN ] : {'unit ~> 'unit} ;
-      [ SET ] : {key ~> 'unit} ;
-      [ GET ] : {'unit ~> key}
+      [ GEN ] : { unit ~> unit } ;
+      [ SET ] : { key  ~> unit } ;
+      [ GET ] : { unit ~> key  }
     ].
 
   (** Definition of the KEY package *)
   Definition KEY : game KEY_out :=
-    [module KEY_loc ;
-      [ GEN ] : {'unit ~> 'unit} '_ {
+    [package KEY_loc ;
+      [ GEN ] (_) {
         k ← get k_loc ;;
         #assert (k == None) ;;
         k ← sample keyD ;;
         #put k_loc := Some k ;;
         @ret 'unit tt
       } ;
-      [ SET ] : {key ~> 'unit} (k) {
+      [ SET ] (k) {
         k' ← get k_loc ;;
         #assert (k' == None) ;;
         #put k_loc := Some k ;;
         @ret 'unit tt
       } ;
-      [ GET ] : {'unit ~> key} '_ {
+      [ GET ] (_) {
         k ← get k_loc ;;
         #assert (isSome k) as kSome ;;
         ret (getSome k kSome)
@@ -231,7 +209,7 @@ Section KEMDEM.
   (** The KEM pacakge can refer to locations corresponding to a public and
     private asymetric keys, and to an encrypted symmetric key.
   *)
-  Definition KEM_loc := fset [:: pk_loc ; sk_loc ; ek_loc ].
+  Definition KEM_loc := [fmap pk_loc ; sk_loc ; ek_loc ].
 
   (** The KEM packaee is parametrised by a boolean [b] depedning on which
     its import interface differs. If [b] is [true] it will be able to call
@@ -249,13 +227,13 @@ Section KEMDEM.
   *)
   Definition KEM_out :=
     [interface
-      [ KEMGEN ] : {'unit ~> pkey} ;
-      [ ENCAP ] : {'unit ~> ekey} ;
-      [ DECAP ] : {ekey ~> key}
+      [ KEMGEN ] : { unit ~> pkey } ;
+      [ ENCAP ]  : { unit ~> ekey } ;
+      [ DECAP ]  : { ekey ~> key  }
     ].
 
-  Definition KEM (b : bool) : module (KEM_in b) KEM_out :=
-    [module KEM_loc ;
+  Definition KEM (b : bool) : package (KEM_in b) KEM_out :=
+    [package KEM_loc ;
       [ KEMGEN ] : {'unit ~> pkey} '_ {
         sk ← get sk_loc ;;
         #assert (sk == None) ;;
@@ -265,8 +243,6 @@ Section KEMDEM.
         ret pk
       } ;
       [ ENCAP ] : {'unit ~> ekey} '_ {
-        let SET := #import [ SET ] : {key ~> 'unit} in
-        let GEN := #import [ GEN ] : {'unit ~> 'unit} in
         pk ← get pk_loc ;;
         #assert (isSome pk) as pkSome ;;
         let pk := getSome pk pkSome in
@@ -274,8 +250,12 @@ Section KEMDEM.
         #assert (ek == None) ;;
         '(k, ek) ← η.(KEM_encap) pk ;;
         #put ek_loc := Some ek ;;
-        (if b then SET k else GEN tt) ;;
-        ret ek
+        if b then 
+          _ ← call [ SET ] : { key ~> unit } k ;;
+          ret ek
+        else 
+          _ ← call [ GEN ] : { unit ~> unit } tt ;;
+          ret ek
       } ;
       [ DECAP ] : {ekey ~> key} (ek') {
         sk ← get sk_loc ;;
@@ -299,14 +279,14 @@ Section KEMDEM.
 
   Definition KEM_CCA_out :=
     [interface
-      [ KEMGEN ] : {'unit ~> pkey} ;
-      [ ENCAP ] : {'unit ~> ekey} ;
-      [ DECAP ] : {ekey ~> key} ;
-      [ GET ] : {'unit ~> key}
+      [ KEMGEN ] : { unit ~> pkey } ;
+      [ ENCAP ]  : { unit ~> ekey } ;
+      [ DECAP ]  : { ekey ~> key  } ;
+      [ GET ]    : { unit ~> key  }
     ].
 
   Definition KEM_CCA_loc :=
-    KEM_loc :|: KEY_loc.
+    unionm KEM_loc KEY_loc.
 
   (** Here we use Equations to generate a goal corresponding to the validity of
     the composed package as it is not inferred automatically.
@@ -318,23 +298,16 @@ Section KEMDEM.
   *)
   Definition KEM_CCA b := (KEM b || ID IGET) ∘ KEY.
 
-  #[local] Hint Unfold KEY_out IGET ISET IGEN : in_fset_eq.
-  #[local] Hint Unfold KEM_in KEM_out KEM_CCA_out : in_fset_eq.
-
 
   #[export] Instance KEM_CCA_valid {b}
     : ValidPackage (loc (KEM_CCA b)) Game_import KEM_CCA_out (KEM_CCA b).
-  Proof.
-    unfold KEM_CCA.
-    nssprove_valid.
-    destruct b; fset_solve.
-  Qed.
+  Proof. unfold KEM_CCA. ssprove_valid. Qed.
 
 
   (** DEM package *)
 
   (** The DEM package only stores a cipher. *)
-  Definition DEM_loc := fset [:: c_loc ].
+  Definition DEM_loc := [fmap c_loc ].
 
   (** The DEM package can refer to the [GET] procedure. *)
   Definition DEM_in := IGET.
@@ -344,26 +317,24 @@ Section KEMDEM.
   *)
   Definition DEM_out :=
     [interface
-      [ ENC ] : {plain ~> cipher} ;
-      [ DEC ] : {cipher ~> plain}
+      [ ENC ] : { plain  ~> cipher } ;
+      [ DEC ] : { cipher ~> plain  }
     ].
 
-  Definition DEM (b : bool) : module DEM_in DEM_out :=
-    [module DEM_loc ;
+  Definition DEM (b : bool) : package DEM_in DEM_out :=
+    [package DEM_loc ;
       [ ENC ] : {plain ~> cipher} (m) {
-        let GET := #import [ GET ] : {'unit ~> key} in
         c ← get c_loc ;;
         #assert (c == None) ;;
-        k ← GET tt ;;
+        k ← call [ GET ] : { unit ~> key } tt ;;
         let c := θ.(DEM_enc) k (if b then m else plain0) in
         #put c_loc := Some c ;;
         ret c
       } ;
       [ DEC ] : {cipher ~> plain} (c') {
-        let GET := #import [ GET ] : {'unit ~> key} in
         c ← get c_loc ;;
         #assert (c != Some c') ;;
-        k ← GET tt ;;
+        k ← call [ GET ] : { unit ~> key } tt ;;
         ret (θ.(DEM_dec) k c')
       }
     ].
@@ -378,41 +349,36 @@ Section KEMDEM.
 
   Definition DEM_CCA_out :=
     [interface
-      [ GEN ] : {'unit ~> 'unit} ;
-      [ ENC ] : {plain ~> cipher} ;
-      [ DEC ] : {cipher ~> plain}
+      [ GEN ] : { unit   ~> unit   } ;
+      [ ENC ] : { plain  ~> cipher } ;
+      [ DEC ] : { cipher ~> plain  }
     ].
 
   Definition DEM_CCA_loc :=
-    DEM_loc :|: KEY_loc.
+    unionm DEM_loc KEY_loc.
 
   Definition DEM_CCA b :=
     (ID IGEN || DEM b) ∘ KEY.
 
-  #[local] Hint Unfold DEM_in DEM_out DEM_CCA_out : in_fset_eq.
-
   #[export] Instance DEM_CCA_valid {b}
     : ValidPackage (loc (DEM_CCA b)) Game_import DEM_CCA_out (DEM_CCA b).
-  Proof.
-    unfold DEM_CCA.
-    nssprove_valid.
-  Qed.
+  Proof. unfold DEM_CCA. ssprove_valid. Qed.
 
 
   (** PKE-CCA *)
 
-  Definition PKE_CCA_loc := fset [:: pk_loc ; sk_loc ; c_loc ; ek_loc ].
+  Definition PKE_CCA_loc := [fmap pk_loc ; sk_loc ; c_loc ; ek_loc ].
 
   Definition PKE_CCA_out :=
     [interface
-      [ PKGEN ] : {'unit ~> pkey} ;
-      [ PKENC ] : {plain ~> ekey × cipher} ;
-      [ PKDEC ] : {ekey × cipher ~> plain}
+      [ PKGEN ] : { unit ~> pkey } ;
+      [ PKENC ] : { plain ~> ekey × cipher } ;
+      [ PKDEC ] : { ekey × cipher ~> plain }
     ].
 
   Definition PKE_CCA (ζ : PKE_scheme) b : game PKE_CCA_out :=
-    [module PKE_CCA_loc ;
-      [ PKGEN ] : {'unit ~> pkey} '_ {
+    [package PKE_CCA_loc ;
+      [ PKGEN ] : { unit ~> pkey } (_) {
         sk ← get sk_loc ;;
         #assert (sk == None) ;;
         '(pk, sk) ← ζ.(PKE_kgen) ;;
@@ -420,7 +386,7 @@ Section KEMDEM.
         #put sk_loc := Some sk ;;
         ret pk
       } ;
-      [ PKENC ] : {plain ~> ekey × cipher} (m) {
+      [ PKENC ] : { plain ~> ekey × cipher } (m) {
         pk ← get pk_loc ;;
         #assert (isSome pk) as pkSome ;;
         let pk := getSome pk pkSome in
@@ -431,9 +397,9 @@ Section KEMDEM.
         '(ek, c) ← ζ.(PKE_enc) pk (if b then m else plain0) ;;
         #put ek_loc := Some ek ;;
         #put c_loc := Some c ;;
-        @ret (chProd _ _) (ek, c)
+        ret (ek, c)
       } ;
-      [ PKDEC ] : {ekey × cipher ~> plain} (c') {
+      [ PKDEC ] : { ekey × cipher ~> plain } (c') {
         sk ← get sk_loc ;;
         #assert (isSome sk) as skSome ;;
         let sk := getSome sk skSome in
@@ -598,8 +564,6 @@ Section KEMDEM.
   Definition Aux b :=
     (MOD_CCA KEM_DEM ∘ (((KEM true) || (DEM b)) ∘ KEY))%sep.
 
-  #[local] Hint Unfold MOD_CCA_in : in_fset_eq.
-
   #[export] Instance Aux_valid {b : bool}
     : ValidPackage (loc (Aux b)) Game_import PKE_CCA_out (Aux b).
   Proof. unfold Aux. nssprove_valid. Qed.
@@ -666,12 +630,6 @@ Section KEMDEM.
     triple_rhs pk_m_loc k_loc ek_loc PKE_inv ⋊
     couple_lhs pk_loc sk_loc (sameSomeRel PkeyPair)
   ).
-
-  #[local]
-  Hint Unfold PKE_CCA_loc MOD_CCA_loc Aux_loc : in_fset_eq.
-  #[local]
-  Hint Unfold KEM_loc DEM_loc KEY_loc : in_fset_eq.
-
 
   (** We have to show that [inv] is a valid invariant and while the
     [ssprove_invariant] does most of the work for us we still have some

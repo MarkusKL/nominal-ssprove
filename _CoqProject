@@ -1,24 +1,4 @@
 -R theories NominalSSP
-theories/FsetSolve.v
-theories/SSProve.v
-
-theories/Nominal.v
-theories/Fresh.v
-theories/Pr.v
-theories/NomPackage.v
-theories/Disjoint.v
-theories/Prelude.v
-theories/Tests.v
-
-theories/Example/PK/Scheme.v
-theories/Example/PK/Reductions.v
-theories/Example/PK/DDH.v
-theories/Example/PK/ElGamal.v
-
-theories/Example/KEMDEMD.v
-theories/Example/NomKEMDEM.v
-
-theories/Example/Sigma/Group.v
-theories/Example/Sigma/Sigma.v
-theories/Example/Sigma/Schnorr.v
-theories/Example/Sigma/OR.v
+theories/Options.v
+theories/Misc.v
+theories/ParTests.v
