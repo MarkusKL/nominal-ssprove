@@ -1,9 +1,17 @@
 # Nominal-SSProve
 
-NEW: Begin [here](https://github.com/MarkusKL/nominal-ssprove-template) with the template and guide for using Nominal-SSProve.
+As of [SSProve](https://github.com/ssprove/ssprove) v0.3.0, the features of
+Nominal-SSProve have been completely integrated into SSProve. Therefore,
+this repository has a new purpose: To showcase developments that use Nominal-SSProve.
 
-Install dependencies by entering the nix development environment with command `nix develop` or using the docker environment as described below.
-It is recommended to use the `coq`, `coq-community` and `math-comp` nix caches to significantly initial build time.
+[Nominal-SSProve v1.1.7](https://github.com/MarkusKL/nominal-ssprove/tree/v1.1.7) is the
+last version of this repository with an independent development of nominal properties.
+The properties as integrated into SSProve are found [here](https://github.com/SSProve/ssprove/tree/v0.3.0/theories/Crypt/nominal).
+
+## Installation
+
+Install dependencies by entering the nix development environment with command `nix-shell` or using the docker environment as described below.
+It is recommended to use the `coq`, `coq-community` and `math-comp` nix caches to significantly reduce initial build time.
 
 Check all project files using `make` and inspect files using vim (with Coqtail) or CoqIDE.
 
