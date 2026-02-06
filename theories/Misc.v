@@ -7,12 +7,17 @@ Notation dist := (code emptym [interface]).
   eapply valid_scheme ; eapply c.(prog_valid)
   : typeclass_instances ssprove_valid_db.  *)
 
-Ltac ssp_prhl invar :=
+Ltac ssp_prhl inv :=
   ssprove_share; eapply prove_perfect;
-  eapply (eq_rel_perf_ind _ _ invar);
-  [ ssprove_invariant; try done |
-    let arg := fresh "arg" in simplify_eq_rel arg
+  eapply (eq_rel_perf_ind _ _ inv);
+  [ ssprove_invariant; try done
+  | let arg := fresh "arg" in simplify_eq_rel arg
   ].
+
+Ltac ssp_prhl_eq :=
+  ssprove_share; eapply prove_perfect;
+  eapply eq_rel_perf_ind_eq;
+  let arg := fresh "arg" in simplify_eq_rel arg.
 
 Ltac ssp_restore :=
   (ssprove_restore_mem; [ ssprove_invariant; try done |]) ||

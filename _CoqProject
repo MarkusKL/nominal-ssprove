@@ -3,3 +3,4 @@ theories/Options.v
 theories/Misc.v
 theories/ParTests.v
 theories/KEMDEM.v
+theories/PRFMAC.v
