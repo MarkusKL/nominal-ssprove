@@ -29,6 +29,11 @@ The final image is around 4GB in size and can be deleted with the command `docke
 
 ## Additional Examples
 
+* Sigma-protocols in Nominal-SSProve:
+    [MarkusKL/ssprove-sigma](https://github.com/MarkusKL/ssprove-sigma/tree/master)
+* PKE-example in SSProve:
+    [SSProve/ssprove](https://github.com/SSProve/ssprove/tree/v0.3.0/theories/Crypt/examples/PKE)
+
 Student projects using Nominal-SSProve:
 
 * Development of DDH and KEM based CKA:
