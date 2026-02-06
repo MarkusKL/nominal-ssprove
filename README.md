@@ -15,7 +15,7 @@ It is recommended to use the `coq`, `coq-community` and `math-comp` nix caches t
 
 Check all project files using `make` and inspect files using vim (with Coqtail) or CoqIDE.
 
-## Docker environment
+### Docker Environment
 
 Build image with Coq dependencies and enter shell with commands:
 
@@ -26,3 +26,15 @@ docker run --rm -it nominal-ssprove
 
 The project files are copied into the image, so changes made will not propagate to the host filesystem.
 The final image is around 4GB in size and can be deleted with the command `docker rmi nominal-ssprove`.
+
+## Additional Examples
+
+Student projects using Nominal-SSProve:
+
+* Development of DDH and KEM based CKA:
+    [hrallil/nominal-ssprove](https://github.com/hrallil/nominal-ssprove/tree/master/theories/Example/CKA)
+* Cryptobox in SSProve based on [Bringing SSPs to EC](https://eprint.iacr.org/2021/326.pdf):
+    [Myssenberg/nominal-ssprove](https://github.com/Myssenberg/nominal-ssprove/tree/master/theories/Cryptobox)
+* Building Commitment Schemes from Sigma-protocols:
+    [petersabroe/thesis](https://github.com/petersabroe/thesis/tree/main/project/theories)
+
