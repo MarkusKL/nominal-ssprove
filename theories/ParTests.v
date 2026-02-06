@@ -4,17 +4,17 @@ Module Tests.
 
 
 Definition I1 :=
-  [interface #val #[ 1 ] : 'unit → 'unit ].
+  [interface #val #[ 1%N ] : 'unit → 'unit ].
 
 Definition I2 :=
-  [interface #val #[ 2 ] : 'unit → 'unit ].
+  [interface #val #[ 2%N ] : 'unit → 'unit ].
 
 Definition I3 :=
-  [interface #val #[ 3 ] : 'unit → 'unit ].
+  [interface #val #[ 3%N ] : 'unit → 'unit ].
 
 Definition I12 := [interface
-  #val #[ 1 ] : 'unit → 'unit ;
-  #val #[ 2 ] : 'unit → 'unit ].
+  #val #[ 1%N ] : 'unit → 'unit ;
+  #val #[ 2%N ] : 'unit → 'unit ].
 
 Definition I123 := unionm I3 I12.
 

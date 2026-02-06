@@ -15,11 +15,6 @@ From NominalSSP Require Import Options Misc.
 
 Section KEMDEM.
 
-  (** We open a section in order to make local changes to global settings
-      in the unlikely event that this module is imported somewhere else.
-  *)
-  Set Equations Transparent.
-
   (** In the SSP paper, bitstrings are used for the different data types.
       Instead we go for a more abstract types.
       In the cases where we need to be able to sample on these data types,
@@ -234,7 +229,7 @@ Section KEMDEM.
 
   Definition KEM (b : bool) : package (KEM_in b) KEM_out :=
     [package KEM_loc ;
-      [ KEMGEN ] : {'unit ~> pkey} '_ {
+      [ KEMGEN ] (_) {
         sk ← get sk_loc ;;
         #assert (sk == None) ;;
         '(pk, sk) ← η.(KEM_kgen) ;;
@@ -242,7 +237,7 @@ Section KEMDEM.
         #put sk_loc := Some sk ;;
         ret pk
       } ;
-      [ ENCAP ] : {'unit ~> ekey} '_ {
+      [ ENCAP ] (_) {
         pk ← get pk_loc ;;
         #assert (isSome pk) as pkSome ;;
         let pk := getSome pk pkSome in
@@ -257,7 +252,7 @@ Section KEMDEM.
           _ ← call [ GEN ] : { unit ~> unit } tt ;;
           ret ek
       } ;
-      [ DECAP ] : {ekey ~> key} (ek') {
+      [ DECAP ] (ek') {
         sk ← get sk_loc ;;
         #assert (isSome sk) as skSome ;;
         let sk := getSome sk skSome in
@@ -299,11 +294,6 @@ Section KEMDEM.
   Definition KEM_CCA b := (KEM b || ID IGET) ∘ KEY.
 
 
-  #[export] Instance KEM_CCA_valid {b}
-    : ValidPackage (loc (KEM_CCA b)) Game_import KEM_CCA_out (KEM_CCA b).
-  Proof. unfold KEM_CCA. ssprove_valid. Qed.
-
-
   (** DEM package *)
 
   (** The DEM package only stores a cipher. *)
@@ -323,7 +313,7 @@ Section KEMDEM.
 
   Definition DEM (b : bool) : package DEM_in DEM_out :=
     [package DEM_loc ;
-      [ ENC ] : {plain ~> cipher} (m) {
+      [ ENC ] (m) {
         c ← get c_loc ;;
         #assert (c == None) ;;
         k ← call [ GET ] : { unit ~> key } tt ;;
@@ -331,7 +321,7 @@ Section KEMDEM.
         #put c_loc := Some c ;;
         ret c
       } ;
-      [ DEC ] : {cipher ~> plain} (c') {
+      [ DEC ] (c') {
         c ← get c_loc ;;
         #assert (c != Some c') ;;
         k ← call [ GET ] : { unit ~> key } tt ;;
@@ -360,10 +350,6 @@ Section KEMDEM.
   Definition DEM_CCA b :=
     (ID IGEN || DEM b) ∘ KEY.
 
-  #[export] Instance DEM_CCA_valid {b}
-    : ValidPackage (loc (DEM_CCA b)) Game_import DEM_CCA_out (DEM_CCA b).
-  Proof. unfold DEM_CCA. ssprove_valid. Qed.
-
 
   (** PKE-CCA *)
 
@@ -378,7 +364,7 @@ Section KEMDEM.
 
   Definition PKE_CCA (ζ : PKE_scheme) b : game PKE_CCA_out :=
     [package PKE_CCA_loc ;
-      [ PKGEN ] : { unit ~> pkey } (_) {
+      [ PKGEN ] (_) {
         sk ← get sk_loc ;;
         #assert (sk == None) ;;
         '(pk, sk) ← ζ.(PKE_kgen) ;;
@@ -386,7 +372,7 @@ Section KEMDEM.
         #put sk_loc := Some sk ;;
         ret pk
       } ;
-      [ PKENC ] : { plain ~> ekey × cipher } (m) {
+      [ PKENC ] (m) {
         pk ← get pk_loc ;;
         #assert (isSome pk) as pkSome ;;
         let pk := getSome pk pkSome in
@@ -399,7 +385,7 @@ Section KEMDEM.
         #put c_loc := Some c ;;
         ret (ek, c)
       } ;
-      [ PKDEC ] : { ekey × cipher ~> plain } (c') {
+      [ PKDEC ] (c') {
         sk ← get sk_loc ;;
         #assert (isSome sk) as skSome ;;
         let sk := getSome sk skSome in
@@ -413,7 +399,7 @@ Section KEMDEM.
   (** MOD-CCA *)
 
   Definition MOD_CCA_loc :=
-    fset [:: pk_m_loc ; c_m_loc ; ek_m_loc ].
+    [fmap pk_m_loc ; c_m_loc ; ek_m_loc ].
 
   Definition MOD_CCA_in :=
     [interface
@@ -428,34 +414,29 @@ Section KEMDEM.
     PKE_CCA_out.
 
   Definition MOD_CCA (ζ : PKE_scheme) :
-    module MOD_CCA_in MOD_CCA_out :=
-    [module MOD_CCA_loc ;
+    package MOD_CCA_in MOD_CCA_out :=
+    [package MOD_CCA_loc ;
       [ PKGEN ] : {'unit ~> pkey} '_ {
-        let KEMGEN := #import [ KEMGEN ] : {'unit ~> pkey} in
         pk ← get pk_m_loc ;;
         #assert (pk == None) ;;
-        pk ← KEMGEN tt ;;
+        pk ← call [ KEMGEN ] : { unit ~> pkey } tt ;;
         #put pk_m_loc := Some pk ;;
         ret pk
       } ;
       [ PKENC ] : {plain ~> ekey × cipher} (m) {
-        let ENCAP := #import [ENCAP] : {'unit ~> ekey} in
-        let ENC := #import [ENC] : {plain ~> cipher} in
         pk ← get pk_m_loc ;;
         #assert (isSome pk) ;;
         ek ← get ek_m_loc ;;
         #assert (ek == None) ;;
         c ← get c_m_loc ;;
         #assert (c ==  None) ;;
-        ek ← ENCAP tt ;;
+        ek ← call [ ENCAP ] : { unit ~> ekey } tt ;;
         #put ek_m_loc := Some ek ;;
-        c ← ENC m ;;
+        c ← call [ ENC ] : { plain ~> cipher} m ;;
         #put c_m_loc := Some c ;;
         @ret (chProd _ _) (ek, c)
       } ;
       [ PKDEC ] : {ekey × cipher ~> plain} '(ek', c') {
-        let DECAP := #import [DECAP] : {ekey ~> key} in
-        let DEC := #import [DEC] : {cipher ~> plain} in
         pk ← get pk_m_loc ;;
         #assert (isSome pk) ;;
         ek ← get ek_m_loc ;;
@@ -463,10 +444,11 @@ Section KEMDEM.
         #assert ((ek, c) != (Some ek', Some c')) ;;
         if ek == Some ek'
         then (
-          DEC c'
+          m ← call [ DEC ] : { cipher ~> plain } c' ;;
+          ret m
         )
         else (
-          k' ← DECAP ek' ;;
+          k' ← call [ DECAP ] : { ekey ~> key } ek' ;;
           ret (θ.(DEM_dec) k' c')
         )
       }
@@ -490,63 +472,59 @@ Section KEMDEM.
 
   (** Corresponds to Lemma 19.a in the SSP paper *)
   Lemma single_key_a {EK ED}:
-    ∀ (CD₀ : module IGET ED)
-      (CD₁ : module IGET ED)
-      (CK₀ : module ISET EK)
-      (CK₁ : module IGEN EK)
-      (A : raw_module),
+    ∀ (CD₀ : package IGET ED)
+      (CD₁ : package IGET ED)
+      (CK₀ : package ISET EK)
+      (CK₁ : package IGEN EK)
+      (A : nom_package),
       let K₀ := (CK₀ || ID IGET) ∘ KEY in
       let K₁ := (CK₁ || ID IGET) ∘ KEY in
       let D₀ := (ID IGEN || CD₀) ∘ KEY in
       let D₁ := (ID IGEN || CD₁) ∘ KEY in
-      Parable CK₀ (ID IGET) →
-      Parable CK₁ (ID IGET) →
-      Parable (ID IGEN) CD₀ →
-      Parable (ID IGEN) CD₁ →
+      fseparate (val CK₀) IGET →
+      fseparate (val CK₁) IGET →
+      fseparate IGEN (val CD₀) →
+      fseparate IGEN (val CD₁) →
       Adv ((CK₀ || CD₀) ∘ KEY) ((CK₁ || CD₁) ∘ KEY) A <=
       Adv K₀ K₁ (A ∘ (ID EK || CD₀)) +
       Adv D₀ D₁ (A ∘ (CK₁ || ID ED)).
   Proof.
-    intros CD₀ CD₁ CK₀ CK₁ A.
-    intros.
-    nssprove_adv_trans ((CK₁ || CD₀) ∘ KEY).
-    erewrite ->
-      (@Adv_par_link_l _ _ _ _ _ _ _ _ _ (ISET :|: IGEN) IGET).
-    (* why do we loop on first goal? with nssprove_valid? *)
-    2-10: nssprove_valid.
-    erewrite -> (@Adv_par_link_r _ _ _ _ _ _ _ _ _ IGEN IGET)
-      ; nssprove_valid.
+    intros CD₀ CD₁ CK₀ CK₁ A. intros.
+    ssprove_hop ((CK₁ || CD₀) ∘ KEY).
+    erewrite -> (@Adv_par_link_l _ _ _ _ _ _ (unionm ISET IGEN) IGET)
+      by ssprove_valid.
+    by erewrite -> (@Adv_par_link_r _ _ _ _ _ _ IGEN IGET)
+      by ssprove_valid.
   Qed.
 
   (** Corresponds to Lemma 19.b in the SSP paper *)
   Lemma single_key_b  {EK ED} :
-    ∀ (CD₀ : module IGET ED)
-      (CD₁ : module IGET ED)
-      (CK₀ : module ISET EK)
-      (CK₁ : module IGEN EK)
-      (A : raw_module),
+    ∀ (CD₀ : package IGET ED)
+      (CD₁ : package IGET ED)
+      (CK₀ : package ISET EK)
+      (CK₁ : package IGEN EK)
+      (A : nom_package),
       let K₀ := (CK₀ || ID IGET) ∘ KEY in
       let K₁ := (CK₁ || ID IGET) ∘ KEY in
       let D₀ := (ID IGEN || CD₀) ∘ KEY in
       let D₁ := (ID IGEN || CD₁) ∘ KEY in
-      Parable CK₀ (ID IGET) →
-      Parable CK₁ (ID IGET) →
-      Parable (ID IGEN) CD₀ →
-      Parable (ID IGEN) CD₁ →
+      fseparate (val CK₀) IGET →
+      fseparate (val CK₁) IGET →
+      fseparate IGEN (val CD₀) →
+      fseparate IGEN (val CD₁) →
       Adv ((CK₀ || CD₀) ∘ KEY) ((CK₀ || CD₁) ∘ KEY) A <=
       Adv K₀ K₁ (A ∘ (ID EK || CD₀)) +
       Adv D₀ D₁ (A ∘ (CK₁ || ID ED)) +
       Adv K₀ K₁ (A ∘ (ID EK || CD₁)).
   Proof.
-    intros CD₀ CD₁ CK₀ CK₁ A.
-    intros.
-    nssprove_adv_trans ((CK₁ || CD₁) ∘ KEY).
-    eapply lerD.
+    intros CD₀ CD₁ CK₀ CK₁ A. intros.
+    ssprove_hop ((CK₁ || CD₁) ∘ KEY).
+    eapply Num.Theory.lerD.
     - eapply @single_key_a. all: eauto.
     (* De-idealising the core keying package *)
     - erewrite Adv_sym.
-      erewrite -> (@Adv_par_link_l _ _ _ _ _ _ _ _ _ (ISET :|: IGEN) IGET)
-        ; nssprove_valid.
+      by erewrite -> (@Adv_par_link_l _ _ _ _ _ _ (unionm ISET IGEN) IGET)
+        by ssprove_valid.
   Qed.
 
   (** Perfect indistinguishability with PKE-CCA
@@ -558,15 +536,8 @@ Section KEMDEM.
     KEM-DEM instance we have.
   *)
 
-  Definition Aux_loc :=
-    MOD_CCA_loc :|: (KEM_loc :|: DEM_loc :|: KEY_loc).
-
   Definition Aux b :=
     (MOD_CCA KEM_DEM ∘ (((KEM true) || (DEM b)) ∘ KEY))%sep.
-
-  #[export] Instance Aux_valid {b : bool}
-    : ValidPackage (loc (Aux b)) Game_import PKE_CCA_out (Aux b).
-  Proof. unfold Aux. nssprove_valid. Qed.
 
   (** We extend ssprove_code_simpl to use code_link_scheme.
     It says that linking a scheme with anything results in the scheme itself
@@ -623,25 +594,13 @@ Section KEMDEM.
     end.
 
   Notation inv := (
-    heap_ignore (MOD_CCA_loc :|: KEY_loc) ⋊
+    heap_ignore (unionm MOD_CCA_loc KEY_loc) ⋊
     couple_rhs pk_loc pk_m_loc eq ⋊
     couple_rhs ek_loc ek_m_loc eq ⋊
     couple_rhs c_loc c_m_loc eq ⋊
     triple_rhs pk_m_loc k_loc ek_loc PKE_inv ⋊
-    couple_lhs pk_loc sk_loc (sameSomeRel PkeyPair)
+    rel_app [:: (rhs, pk_m_loc); (lhs, sk_loc)] (sameSomeRel PkeyPair)
   ).
-
-  (** We have to show that [inv] is a valid invariant and while the
-    [ssprove_invariant] does most of the work for us we still have some
-    properties regarding the sets involved to prove
-    (otherwise type inference would have solved it).
-  *)
-  Instance Invariant_inv : Invariant PKE_CCA_loc Aux_loc inv.
-  Proof.
-    unfold Aux_loc; simpl.
-    ssprove_invariant; try done; fset_solve.
-  Qed.
-
 
   (** We show perfect equivalence in the general case where [b] stay abstract.
     This spares us the burden of proving roughly the same equivalence twice.
@@ -649,195 +608,113 @@ Section KEMDEM.
   Lemma PKE_CCA_perf :
     ∀ b, perfect PKE_CCA_out (PKE_CCA KEM_DEM b) (Aux b).
   Proof.
-    intro b. unfold Aux.
-    nssprove_share. eapply prove_perfect.
-    Unshelve.
-    3: nssprove_valid.
-    (* We go to the relational logic with our invariant. *)
-    eapply eq_rel_perf_ind with (inv := inv). 1: exact _.
-    simplify_eq_rel m.
+    intro b. unfold Aux. ssp_prhl (inv : _).
     all: ssprove_code_simpl.
     (* We are now in the realm of program logic *)
     - ssprove_code_simpl_more.
-      ssprove_code_simpl.
+      ssprove_code_simpl; simpl.
       ssprove_swap_seq_rhs [:: 1 ; 0 ; 2 ; 1 ]%N.
-      eapply r_get_vs_get_remember.
-      1: ssprove_invariant; fset_solve. intro sk.
-      ssprove_sync. intro skNone.
-      eapply r_get_remember_rhs. intro pk.
-      eapply (r_rem_couple_lhs pk_loc sk_loc). 1,3: exact _.
-      1:{
-        eapply Remembers_lhs_from_tracked_rhs.
-        2: ssprove_invariant; fset_solve.
-        intros s0 s1 [preH remH].
-        do 6 move: preH => [preH _].
-        move: preH => [_ preH].
-        rewrite /rem_rhs preH remH //.
-      }
-      intro eps. destruct sk. 1: discriminate.
+      eapply @r_get_vs_get_remember; [ exact _ |] => sk.
+      ssprove_sync => /eqP {sk}->.
+      eapply r_get_remember_rhs => pk.
+      ssprove_rem_rel 0%N => eps.
       destruct pk. 1: contradiction. simpl.
-      eapply r_scheme_bind_spec. 1: eapply KEM_kgen_spec. intros [pk' sk'] pps.
+      eapply r_scheme_bind_spec.
+      1: eapply KEM_kgen_spec. intros [pk' sk'] pps.
       eapply r_put_vs_put.
       eapply r_put_vs_put.
       eapply r_put_rhs.
-      ssprove_restore_mem.
-      2: apply r_ret; auto.
-      ssprove_invariant; try auto.
-      + rewrite -fset_cat. ssprove_invariant.
-      + intros s0 s1 H.
-        rewrite /triple_rhs //= in H |- *.
-        destruct H as [[[hi ?] ?] e].
-        rewrite e in hi.
-        get_heap_simpl.
-        by destruct (get_heap s1 k_loc), (get_heap s1 ek_loc).
+      ssp_ret. by destruct v.
     - ssprove_code_simpl_more.
-      ssprove_code_simpl.
+      ssprove_code_simpl; simpl.
       ssprove_swap_seq_rhs [:: 5 ; 4 ; 3 ; 2 ; 1 ]%N.
       eapply r_get_remember_rhs => pk_m.
-      eapply r_get_vs_get_remember. 1: ssprove_invariant; fset_solve. intro pk.
-      eapply (r_rem_couple_rhs pk_loc pk_m_loc). 1,2,3: exact _.
-      intros Eq; symmetry in Eq; subst.
+      eapply @r_get_vs_get_remember; [ exact _ |] => pk.
+      ssprove_rem_rel 4%N => {pk_m}<-.
       ssprove_sync. intro pkSome.
-      destruct pk as [pk|]. 2: discriminate.
-      simpl.
-      ssprove_swap_seq_rhs [:: 3 ; 2 ; 1 ; 0 ]%N.
-      eapply r_get_vs_get_remember. 1: ssprove_invariant; fset_solve. intro ek.
-      eapply r_get_remind_rhs.
-      1: {
-        intros s0 s1 [[[[[[[[[_ H] _] _] _] _] _] _] _] H'].
-        rewrite /rem_rhs -H H' //.
-      }
-      ssprove_sync => /eqP -> {ek}.
-      
-      eapply r_get_remember_rhs => c'.
-      eapply (r_rem_rhs c_loc) => c''.
-      eapply (r_rem_couple_rhs c_loc c_m_loc).
-      1,2,3: exact _. move=> <- {c'}.
-      eapply (r_get_remind_lhs c_loc).
-      1: eapply Remembers_lhs_from_tracked_rhs.
-      2: ssprove_invariant; fset_solve.
-      1: exact _.
-      ssprove_sync => /eqP -> {c''}.
-
-      eapply r_scheme_bind_spec. 1: eapply KEM_encap_spec. intros [k' ek'] hkek.
+      destruct pk as [pk|]. 2: discriminate. simpl.
+      ssprove_swap_seq_rhs [:: 3; 2; 1; 0; 4; 3; 2; 1 ]%N.
+      eapply @r_get_vs_get_remember; [ exact _ |] => ek.
+      ssprove_sync => ekNone.
+      move: ekNone => /eqP {ek}->.
+      apply r_get_remember_rhs => ek_m.
+      ssprove_rem_rel 3%N => {ek_m}<- /=.
+      apply r_get_remember_lhs => c.
+      apply r_get_remember_rhs => c_m.
+      ssprove_rem_rel 2%N => {c_m}<-.
+      ssprove_sync => cNone.
+      move: cNone => /eqP {c}->.
+      eapply r_scheme_bind_spec.
+      1: eapply KEM_encap_spec. intros [k' ek'] hkek.
       ssprove_code_simpl_more. ssprove_code_simpl.
       ssprove_code_simpl_more.
-      ssprove_swap_seq_rhs [:: 3 ; 2 ; 1 ]%N.
-      (* ssprove_contract_put_rhs. *)
-      ssprove_swap_seq_rhs [:: 4 ; 3 ; 2 ; 1 ; 0 ]%N.
-      eapply r_get_remind_rhs.
-      1: exact _.
+      ssprove_swap_seq_rhs [:: 3; 2; 1; 4; 3; 2; 1; 0 ]%N.
+      eapply @r_get_remind_rhs.
+      1: apply Remembers_syncs; exact _.
       ssprove_swap_seq_rhs [:: 1 ; 0 ]%N.
       eapply r_get_remember_rhs. intros k.
-      eapply (r_rem_triple_rhs pk_m_loc k_loc ek_loc). 1-4: exact _. intro hpke.
-      destruct k. 1: contradiction.
-      simpl.
+      ssprove_rem_rel 1%N.
+      destruct k; [ contradiction |] => _ /=.
       ssprove_swap_seq_rhs [:: 1 ; 2 ; 0 ; 1 ]%N.
       ssprove_contract_put_get_rhs. simpl.
-      apply r_put_rhs.
-      apply r_put_vs_put.
-      apply r_put_rhs.
-      apply r_put_vs_put.
-      apply r_put_rhs.
-      ssprove_restore_mem.
-      2: apply r_ret; auto.
-      ssprove_invariant.
-      2,3: reflexivity.
-      + rewrite -fset_cat. ssprove_invariant.
-      + intros s₀ s₁ hh. unfold triple_rhs in *. simpl in *.
-        destruct hh as [[[[[[[[hi epk] ?] ?] ?] ?] ?] ?] ?]. simpl in *.
-        get_heap_simpl.
-        rewrite epk. simpl. auto.
-    - destruct m as [ek' c']. simpl.
+      apply r_put_rhs, r_put_vs_put.
+      apply r_put_rhs, r_put_vs_put, r_put_rhs.
+      ssp_ret.
+    - destruct arg as [ek' c']. simpl.
       ssprove_swap_seq_rhs [:: 1 ; 0 ; 2 ; 1 ]%N.
       ssprove_swap_seq_lhs [:: 1 ; 0 ; 2 ; 1 ]%N.
-
-      eapply r_get_remember_rhs => ek.
-      eapply (r_rem_rhs ek_loc) => ek''.
-      eapply (r_rem_couple_rhs ek_loc ek_m_loc).
-      1,2,3: exact _. move=> -> {ek''}.
-      eapply (r_get_remind_lhs ek_loc).
-      1: eapply Remembers_lhs_from_tracked_rhs.
-      2: ssprove_invariant; fset_solve.
-      1: exact _.
-
-      eapply r_get_remember_rhs => c.
-      eapply (r_rem_rhs c_loc) => c''.
-      eapply (r_rem_couple_rhs c_loc c_m_loc).
-      1,2,3: exact _. move=> -> {c''}.
-      eapply (r_get_remind_lhs c_loc).
-      1: eapply Remembers_lhs_from_tracked_rhs.
-      2: ssprove_invariant; fset_solve.
-      1: exact _.
-
-      eapply r_get_remember_rhs. intro pk.
-      eapply r_get_remember_lhs. intro sk.
-      eapply (r_rem_couple_lhs pk_loc sk_loc pk). 1,3: exact _.
-      1: eapply Remembers_lhs_from_tracked_rhs.
-      2: ssprove_invariant; fset_solve.
-      1: {
-        intros s0 s1 [[[[[[[[[[[_ H] _] _] _] _] _] _] _] _] H'] _].
-        rewrite /rem_rhs H H' //.
-      }
-
-      intro eps.
-      eapply sameSomeRel_sameSome in eps as eps'. rewrite eps'.
-      ssprove_sync. intro skSome.
+      apply r_get_remember_lhs => ek.
+      apply r_get_remember_lhs => c.
+      apply r_get_remember_lhs => sk.
+      apply r_get_remember_rhs => ek_m.
+      apply r_get_remember_rhs => c_m.
+      apply r_get_remember_rhs => pk_m.
+      ssprove_rem_rel 3%N => {ek_m}<-.
+      ssprove_rem_rel 2%N => {c_m}<-.
+      ssprove_rem_rel 0%N => ?.
+      destruct pk_m, sk; try contradiction;
+        try apply r_fail; simpl.
       ssprove_sync. intro neq.
       move: neq => /eqP neq.
-
       destruct (ek == Some ek')%bool eqn:eek.
       + move: eek => /eqP eek. subst ek.
         destruct (c != Some c') eqn:e.
         2:{ move: e => /eqP e. subst. contradiction. }
         rewrite eq_refl; simpl.
-        eapply r_get_remind_rhs.
-        1: exact _.
-        rewrite e.
-        ssprove_code_simpl. simpl.
-        ssprove_code_simpl. ssprove_code_simpl_more.
-        eapply r_get_remember_rhs. intro k.
-        eapply (r_rem_triple_rhs pk_m_loc k_loc ek_loc). 1,2,3: exact _.
-        1: exact _.
-        intro hpke.
-        destruct sk as [sk|]. 2: discriminate.
-        destruct pk as [pk|]. 2: contradiction.
-        destruct k as [k|]. 2: contradiction.
-        simpl. simpl in hpke. simpl in eps. unfold PkeyPair in eps.
-        eapply hpke in eps as h. simpl in h. subst.
-        ssprove_forget_all.
-        apply r_ret. auto.
+        eapply r_get_remember_rhs => c0.
+        ssprove_code_simpl_more.
+        ssprove_code_simpl; simpl.
+        ssprove_code_simpl_more.
+        ssprove_rem_rel 2%N => ->{c0}.
+        rewrite e /=. apply r_get_remember_rhs => k.
+        ssprove_rem_rel 1%N. destruct k => //= -> //=.
+        ssp_ret.
       + rewrite eek. ssprove_code_simpl_more.
-        eapply r_get_remind_rhs.
-        1: apply Remembers_rhs_from_tracked_lhs.
-        1: exact _.
-        1: ssprove_invariant; fset_solve.
-        destruct sk as [sk|]. 2: discriminate.
+        eapply @r_get_remind_rhs.
+        1: apply Remembers_syncs; exact _.
         simpl.
-        eapply r_get_remind_rhs.
-        1: exact _.
-        rewrite eek.
-        simpl.
-        ssprove_forget_all.
-        apply r_ret; auto.
+        eapply @r_get_remind_rhs.
+        1: apply Remembers_syncs; exact _.
+        rewrite eek //=.
+        ssp_ret.
   Qed.
 
 
   (** Security theorem *)
 
   Theorem PKE_security :
-    ∀ (A : module PKE_CCA_out A_export),
-      AdvFor (PKE_CCA KEM_DEM) A <=
-      AdvFor KEM_CCA (A ∘ (MOD_CCA KEM_DEM ∘ (ID KEM_out || DEM true))) +
-      AdvFor DEM_CCA (A ∘ (MOD_CCA KEM_DEM ∘ (KEM false || ID DEM_out))) +
-      AdvFor KEM_CCA (A ∘ (MOD_CCA KEM_DEM ∘ (ID KEM_out || DEM false))).
+    ∀ (A : package PKE_CCA_out A_export),
+      AdvOf (PKE_CCA KEM_DEM) A <=
+      AdvOf KEM_CCA (A ∘ (MOD_CCA KEM_DEM ∘ (ID KEM_out || DEM true))) +
+      AdvOf DEM_CCA (A ∘ (MOD_CCA KEM_DEM ∘ (KEM false || ID DEM_out))) +
+      AdvOf KEM_CCA (A ∘ (MOD_CCA KEM_DEM ∘ (ID KEM_out || DEM false))).
   Proof.
     intros A.
-    rewrite (AdvFor_perfect PKE_CCA_perf) /Aux /AdvFor.
-    erewrite Adv_sep_link.
+    rewrite (AdvOf_perfect PKE_CCA_perf) /Aux.
+    erewrite Adv_reduction.
     eapply le_trans.
     + eapply (single_key_b _ _ _ (KEM false)).
-      all: nssprove_valid.
+      all: ssprove_valid.
     + by erewrite sep_link_assoc, sep_link_assoc, sep_link_assoc.
   Qed.
 End KEMDEM.
