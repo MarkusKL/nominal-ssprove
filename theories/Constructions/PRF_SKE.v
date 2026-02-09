@@ -1,4 +1,4 @@
-From NominalSSP Require Import Options Misc PRF SKE.
+From NominalSSP Require Import Options Misc Replacement PRF SKE.
 
 Section PRFSKE.
 
@@ -37,36 +37,7 @@ Section PRFSKE.
     by rewrite GRing.addrA GRing.subrr GRing.add0r.
   Qed.
 
-  Definition prev_loc := mkloc 8%N (nil : list 'Z_N). 
-
-  Definition SAMPLE := 8%N.
-
-  Definition I_SAMPLE := [interface [ SAMPLE ] : { unit ~> 'Z_N × bool }].
-
-  Definition NotReplaced : game I_SAMPLE :=
-    [package [fmap prev_loc ] ;
-      [ SAMPLE ] (x) {
-        r ← sample uniformZ N ;;
-        prev ← get prev_loc ;;
-        if r \in prev then
-          ret (r, false)
-        else
-          #put prev_loc := r :: prev ;;
-          ret (r, true)
-      }
-    ].
-
-  Definition Replaced : game I_SAMPLE :=
-    [package emptym ;
-      [ SAMPLE ] (x) {
-        r ← sample uniformZ N ;;
-        ret (r, true)
-      }
-    ].
-
-  Definition Sample b := if b then Replaced else NotReplaced.
-
-  Definition MOD_CPA : package (unionm (I_PRF N) (I_SAMPLE)) (I_CPA PRFSKE) :=
+  Definition MOD_CPA : package (unionm (I_PRF N) (I_SAMPLE N)) (I_CPA PRFSKE) :=
     [package emptym ;
       [ GEN ] (_) {
         _ ← call [ INIT ] tt ;;
@@ -84,7 +55,7 @@ Section PRFSKE.
     ].
 
   Lemma CPA_PRFSKE_1 : perfect (I_CPA PRFSKE)
-    (CPA0 PRFSKE) (MOD_CPA ∘ (PRF0 _ _ F || Replaced)).
+    (CPA0 PRFSKE) (MOD_CPA ∘ (PRF0 _ _ F || Replaced N)).
   Proof.
     ssp_prhl (heap_ignore [fmap key_loc PRFSKE; PRF.key_loc (Zp_trunc K).+2 ]
       ⋊ couple_cross (key_loc PRFSKE) (PRF.key_loc _) eq).
@@ -102,10 +73,10 @@ Section PRFSKE.
   Qed.
 
   Lemma CPA_PRFSKE_2 : perfect (I_CPA PRFSKE)
-    (MOD_CPA ∘ (PRF1 N || NotReplaced)) (CPA1 PRFSKE).
+    (MOD_CPA ∘ (PRF1 N || NotReplaced N)) (CPA1 PRFSKE).
   Proof.
-    ssp_prhl (heap_ignore [fmap prev_loc; lazy_map_loc N]
-      ⋊ couple_lhs prev_loc (lazy_map_loc N) (λ prev L, fset prev = domm L)).
+    ssp_prhl (heap_ignore [fmap prev_loc N; lazy_map_loc N]
+      ⋊ couple_lhs (prev_loc N) (lazy_map_loc N) (λ prev L, fset prev = domm L)).
     - ssp_ret.
     - ssprove_code_simpl; simpl.
       ssprove_sync => r.
@@ -129,12 +100,12 @@ Section PRFSKE.
 
   Theorem CPA_PRFSKE A {VA : ValidPackage (loc A) (I_CPA PRFSKE) A_export A}
     : AdvOf (CPA PRFSKE) A <=
-      AdvOf (PRF K N F) (A ∘ MOD_CPA ∘ (ID (I_PRF N) || Replaced)) +
-      AdvOf (Sample) (A ∘ MOD_CPA ∘ (PRF1 N || ID (I_SAMPLE))).
+      AdvOf (PRF K N F) (A ∘ MOD_CPA ∘ (ID (I_PRF N) || Replaced N)) +
+      AdvOf (Replacement N) (A ∘ MOD_CPA ∘ (PRF1 N || ID (I_SAMPLE N))).
   Proof.
     rewrite (Adv_perfect_l CPA_PRFSKE_1) -(Adv_perfect_r CPA_PRFSKE_2).
     rewrite Adv_reduction.
-    ssprove_hop (PRF1 N || Replaced).
+    ssprove_hop (PRF1 N || Replaced N).
     by rewrite Adv_par_l Adv_par_r -2!sep_link_assoc.
   Qed.
 End PRFSKE.
