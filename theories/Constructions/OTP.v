@@ -5,18 +5,16 @@ Section OTP. (* Ordinal based One-Time Pad *)
 
   Context (n : nat).
 
-  Notation uniformZn := (uniform (Zp_trunc n).+2).
-
   Definition OTP : SKE := {|
       Key := 'Z_n
     ; Mes := 'Z_n
     ; Cip := 'Z_n
     ; CipDist := {code
-        r ← sample uniformZn ;;
+        r ← sample uniformZ n ;;
         ret r
       }
     ; KeyDist := {code
-        k ← sample uniformZn ;;
+        k ← sample uniformZ n ;;
         ret k
       }
     ; Enc := λ k m, {code
@@ -31,14 +29,6 @@ Section OTP. (* Ordinal based One-Time Pad *)
     apply r_const_sample_L; [ exact _ |] => k.
     rewrite GRing.addrK. ssp_ret.
   Qed.
-
-  (*
-  Lemma bijective_add {m : 'fin #|F|} : bijective (λ k, fto (otf m * otf k)).
-  Proof.
-    exists (λ k, fto ((otf m)^-1 * otf k)).
-    - intros x. rewrite otf_fto mulKg fto_otf //.
-    - intros x. rewrite otf_fto mulKVg fto_otf //.
-     Qed. *)
   
   Lemma add_bij (m : 'Z_n) : bijective (λ k, m + k).
   Proof.

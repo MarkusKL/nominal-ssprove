@@ -43,8 +43,7 @@ Section SKE.
   Definition I_OTS :=
     [interface [ QUERY ] : { P.(Mes) ~> P.(Cip) } ].
 
-  Definition OTS b :
-    game I_OTS :=
+  Definition OTS b : game I_OTS :=
     [package emptym ;
       [ QUERY ] : { P.(Mes) ~> P.(Cip) } (m) {
         if b then
@@ -54,4 +53,40 @@ Section SKE.
           P.(CipDist)
       }
     ].
+
+  Definition GEN := 4%N.
+
+  Definition I_CPA := [interface
+    [ GEN ] : { unit ~> unit } ;
+    [ QUERY ] : { P.(Mes) ~> P.(Cip) } ].
+
+  Definition key_loc := mkloc 2%N (None : option P.(Key)).
+
+  Definition CPA0 : game I_CPA :=
+    [package [fmap key_loc] ;
+      [ GEN ] (_) {
+        k ← P.(KeyDist) ;;
+        #put key_loc := Some k ;;
+        ret tt
+      } ;
+      [ QUERY ] (m) {
+        k ← getSome key_loc ;;
+        c ← P.(Enc) k m ;;
+        ret c
+      }
+    ].
+
+  Definition CPA1 : game I_CPA :=
+    [package [fmap key_loc] ;
+      [ GEN ] (_) {
+        ret tt
+      } ;
+      [ QUERY ] (m) {
+        c ← P.(CipDist) ;;
+        ret c
+      }
+    ].
+
+  Definition CPA b := if b then CPA0 else CPA1.
+
 End SKE.

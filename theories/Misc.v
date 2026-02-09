@@ -25,3 +25,14 @@ Ltac ssp_restore :=
   ssprove_forget_all.
 
 Ltac ssp_ret := ssp_restore; [ .. | apply r_ret; try done ].
+
+Notation uniformZ n := (uniform (Zp_trunc n).+2).
+
+(* Unused for now
+Notation "n .-bits" := (n.-tuple 'Z_2).
+
+Definition xor {n : nat} : n.-bits → n.-bits → n.-bits :=
+  λ x y, [tuple tnth x i + tnth y i | i < n ].
+
+Notation "x ⊕ y" := (xor x y) (at level 40).
+ *)

@@ -5,4 +5,6 @@ theories/ParTests.v
 theories/KEMDEM.v
 theories/PRFMAC.v
 theories/Primitives/SKE.v
+theories/Primitives/PRF.v
 theories/Constructions/OTP.v
+theories/Constructions/PRF_SKE.v
