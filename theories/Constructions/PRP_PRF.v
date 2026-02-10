@@ -17,9 +17,7 @@ Section PRPPRF.
 
   Definition MOD_Replacement : package (I_SAMPLE N) (I_PRP N) :=
     [package [fmap lazy_map_loc N ] ;
-      [ INIT ] (_) {
-        ret tt
-      } ;
+      [ INIT ] (_) { ret tt } ;
       [ QUERY ] (x) {
         L ← get lazy_map_loc N ;;
         if L x is Some y then
@@ -31,41 +29,26 @@ Section PRPPRF.
       }
     ].
 
-  Lemma codomm_set {T S : ordType} (L : {fmap T → S}) t s
-    : codomm (setm L t s) = s |: codomm L.
-  Proof.
-  Admitted.  (*
-    apply /fsubsetP => s' H.
-    rewrite in_fsetU in_fset1.
-    apply /orP.
-    move: H => /codommP [t' H].
-    rewrite setmE in H.
-    destruct (t' == t)%B.
-    - injection H => ->. rewrite eq_refl. by left.
-    - right. apply /codommP. by exists t'.
-  Qed. *)
-
   Lemma PRP_MOD_Replacement : perfect
     (I_PRP N) (PRP1 N) (MOD_Replacement ∘ NotReplaced N).
   Proof.
     ssp_prhl (heap_ignore [fmap prev_loc N ]
       ⋊ couple_rhs (lazy_map_loc N) (prev_loc N) (λ L prev, fset prev = codomm L)).
     - ssp_ret.
-    - ssprove_code_simpl; simpl.
-      ssprove_code_simpl_more. (* Why is this line necessary? *)
+    - ssp_simpl. 
       apply r_get_vs_get_remember => L.
       destruct (L arg) eqn:E; rewrite E; [ ssp_ret |].
       ssprove_sync => y.
       apply r_get_remember_rhs => prev.
       ssprove_rem_rel 0%N => <-.
-      rewrite in_fset.
+      move=> /dommPn in E. rewrite in_fset.
       destruct (y \in prev) eqn:E'; rewrite E'.
       + apply r_put_vs_put.
-        ssp_ret. rewrite codomm_set => <-.
+        ssp_ret. rewrite codomm_set => // <-.
         symmetry. apply /fsetUidPr.
         by rewrite fsub1set in_fset.
       + apply r_put_rhs, r_put_vs_put.
-        ssp_ret. rewrite codomm_set => <-.
+        ssp_ret. rewrite codomm_set // => <-.
         by rewrite fset_cons.
   Qed.
 
@@ -76,7 +59,7 @@ Section PRPPRF.
     - ssp_ret.
     - ssprove_sync_eq => L.
       destruct (L arg) eqn:E; rewrite E; [ ssp_ret |].
-      ssprove_code_simpl; simpl.
+      ssp_simpl.
       ssprove_sync_eq => y.
       ssprove_sync_eq.
       ssp_ret.
@@ -98,7 +81,7 @@ Section PRPPRF.
       apply r_put_vs_put.
       ssp_ret.
     - ssprove_sync => o_k.
-      ssprove_code_simpl_more.
+      ssp_simpl.
       ssprove_sync => Hk.
       ssp_ret.
   Qed.
