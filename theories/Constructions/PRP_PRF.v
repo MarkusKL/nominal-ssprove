@@ -1,7 +1,7 @@
 From NominalSSP Require Import Options Misc Replacement PRF PRP.
 
 Section PRPPRF.
-  Context (N K : nat) (F : 'Z_K → 'Z_N → 'Z_N).
+  Context (N K : nat) (F : K.-bits → N.-bits → N.-bits).
   
   Definition MOD_PRF : package (I_PRP N) (I_PRF N) :=
     [package emptym ;
@@ -15,7 +15,7 @@ Section PRPPRF.
       }
     ].
 
-  Definition MOD_Replacement : package (I_SAMPLE N) (I_PRP N) :=
+  Definition MOD_Replacement : package (I_SAMPLE (2 ^ N)) (I_PRP N) :=
     [package [fmap lazy_map_loc N ] ;
       [ INIT ] (_) { ret tt } ;
       [ QUERY ] (x) {
@@ -30,10 +30,10 @@ Section PRPPRF.
     ].
 
   Lemma PRP_MOD_Replacement : perfect
-    (I_PRP N) (PRP1 N) (MOD_Replacement ∘ NotReplaced N).
+    (I_PRP N) (PRP1 N) (MOD_Replacement ∘ NotReplaced (2 ^ N)).
   Proof.
-    ssp_prhl (heap_ignore [fmap prev_loc N ]
-      ⋊ couple_rhs (lazy_map_loc N) (prev_loc N) (λ L prev, fset prev = codomm L)).
+    ssp_prhl (heap_ignore [fmap prev_loc (2 ^ N) ]
+      ⋊ couple_rhs (lazy_map_loc N) (prev_loc (2 ^ N)) (λ L prev, fset prev = codomm L)).
     - ssp_ret.
     - ssp_simpl. 
       apply r_get_vs_get_remember => L.
@@ -53,7 +53,7 @@ Section PRPPRF.
   Qed.
 
   Lemma PRF_MOD_Replacement : perfect
-    (I_PRF N) (PRF1 N) (MOD_PRF ∘ MOD_Replacement ∘ Replaced N).
+    (I_PRF N) (PRF1 N) (MOD_PRF ∘ MOD_Replacement ∘ Replaced (2 ^ N)).
   Proof.
     ssp_prhl_eq.
     - ssp_ret.
@@ -67,7 +67,7 @@ Section PRPPRF.
 
   Theorem Switching A {VA : ValidPackage (loc A) (I_PRF N) A_export A}
     : Adv (PRF1 N) (MOD_PRF ∘ PRP1 N) A <=
-      AdvOf (Replacement N) (A ∘ MOD_PRF ∘ MOD_Replacement).
+      AdvOf (Replacement (2 ^ N)) (A ∘ MOD_PRF ∘ MOD_Replacement).
   Proof.
     rewrite (Adv_perfect_l PRF_MOD_Replacement) Adv_reduction.
     rewrite (Adv_perfect_r PRP_MOD_Replacement) Adv_reduction.
@@ -89,7 +89,7 @@ Section PRPPRF.
   Theorem PRP_PRF A {VA : ValidPackage (loc A) (I_PRF N) A_export A}
     : AdvOf (PRF K N F) A
       <= AdvOf (PRP K N F) (A ∘ MOD_PRF)
-       + AdvOf (Replacement N) (A ∘ MOD_PRF ∘ MOD_Replacement).
+       + AdvOf (Replacement (2 ^ N)) (A ∘ MOD_PRF ∘ MOD_Replacement).
   Proof.
     rewrite (Adv_perfect_l PRF_PRP_real).
     ssprove_hop (MOD_PRF ∘ PRP1 N).

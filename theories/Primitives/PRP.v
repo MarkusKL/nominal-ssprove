@@ -1,23 +1,23 @@
 From NominalSSP Require Import Options Misc.
 
 Section PRP.
-  Context (k n : nat).
-  Context (F : 'Z_k → 'Z_n → 'Z_n).
-  Context (Finv : 'Z_k → 'Z_n → 'Z_n).
+  Context (K N : nat).
+  Context (F : K.-bits → N.-bits → N.-bits).
+  Context (Finv : K.-bits → N.-bits → N.-bits).
 
   Definition INIT := 9%N.
   Definition QUERY := 5%N.
 
   Definition I_PRP := [interface
     [ INIT ] : { unit ~> unit };
-    [ QUERY ] : { 'Z_n ~> 'Z_n × bool } ].
+    [ QUERY ] : { N.-bits ~> N.-bits × bool } ].
 
-  Definition key_loc := mkloc 4%N (None : option 'Z_k). 
+  Definition key_loc := mkloc 4%N (None : option K.-bits).
 
   Definition PRP0 : game I_PRP :=
     [package [fmap key_loc] ;
       [ INIT ] (_) { 
-        k ← sample uniformZ k ;;
+        k ← sample uniform_bits K ;;
         #put key_loc := Some k ;;
         ret tt
       } ;
@@ -27,7 +27,7 @@ Section PRP.
       }
     ].
 
-  Definition lazy_map_loc := mkloc 4%N (emptym : {fmap 'Z_n → 'Z_n}). 
+  Definition lazy_map_loc := mkloc 4%N (emptym : {fmap N.-bits → N.-bits}).
 
   Definition PRP1 : game I_PRP :=
     [package [fmap lazy_map_loc ] ;
@@ -39,7 +39,7 @@ Section PRP.
         if L x is Some y then
           ret (y, true)
         else
-          y ← sample uniformZ n ;;
+          y ← sample uniform_bits N ;;
           #put lazy_map_loc := setm L x y ;;
           ret (y, y \notin codomm L)
       }
