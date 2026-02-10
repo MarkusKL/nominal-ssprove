@@ -8,6 +8,7 @@ theories/Assumptions/Replacement.v
 theories/Primitives/PRP.v
 theories/Primitives/PRF.v
 theories/Primitives/SKE.v
-theories/Constructions/OTP.v
+theories/Constructions/OTP_Z.v
+theories/Constructions/OTP_bits.v
 theories/Constructions/PRP_PRF.v
 theories/Constructions/PRF_SKE.v

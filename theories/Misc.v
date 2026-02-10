@@ -31,14 +31,145 @@ Ltac ssp_ret := ssp_restore; [ .. | apply r_ret; try done ].
 
 Notation uniformZ n := (uniform (Zp_trunc n).+2).
 
-(* Unused for now
-Notation "n .-bits" := (n.-tuple 'Z_2).
+Notation "n .-bits" := ('I_(2 ^ n)).
+Notation uniform_bits n := (uniform (2 ^ n)).
 
-Definition xor {n : nat} : n.-bits → n.-bits → n.-bits :=
-  λ x y, [tuple tnth x i + tnth y i | i < n ].
+Section Bits.
+
+#[local] Obligation Tactic := idtac.
+
+Program Definition lower {n m} : 'I_(n * m) → 'I_n
+  := λ x, @Ordinal _ (x %% n)%N _.
+Obligation 1.
+  move=> [|n] m x.
+  - exfalso. rewrite mul0n in x. by destruct x.
+  - by apply ltn_pmod.
+Qed.
+
+Program Definition upper {n m} : 'I_(n * m) → 'I_m
+  := λ x, @Ordinal _ (x %/ n)%N _.
+Obligation 1.
+  move=> [|n] m x.
+  - exfalso. rewrite mul0n in x. by destruct x.
+  - by rewrite ltn_divLR // (mulnC m).
+Qed.
+
+Program Definition stitch {n m} : 'I_n → 'I_m → 'I_(n * m)
+  := λ x y, @Ordinal _ (x + y * n) _.
+Obligation 1.
+  move=> [|n] m x y; [ by destruct x |].
+  rewrite (mulnC n.+1 m) -ltn_divLR // divnDMl //.
+  rewrite divn_small // add0n //.
+Qed.
+
+Definition stitchK {n m} (x : 'I_(n * m)) : stitch (lower x) (upper x) = x.
+Proof. apply ord_inj => /=. by rewrite addnC -divn_eq. Qed.
+
+Definition lowerK {n m} (x : 'I_n) (y : 'I_m) : lower (stitch x y) = x.
+Proof.
+  apply ord_inj => /=.
+  rewrite -modnDm modnMl addn0.
+  destruct n; [ by destruct x |]; by rewrite 2!modZp.
+Qed.
+
+Definition upperK {n m} (x : 'I_n) (y : 'I_m) : upper (stitch x y) = y.
+Proof.
+  apply ord_inj => /=.
+  destruct n; [ by destruct x |].
+  rewrite divnDMl // divn_small //.
+Qed.
+
+
+Definition nilb : 0.-bits := ord0.
+
+Definition headb {n} : n.+1.-bits → 'Z_2 :=
+  λ x, lower (cast_ord (expnS _ _) x).
+
+Definition tailb {n} : n.+1.-bits → n.-bits :=
+  λ x, upper (cast_ord (expnS _ _) x).
+
+Definition consb {n} : 'Z_2 → n.-bits → n.+1.-bits :=
+  λ h t, cast_ord (esym (expnS _ _)) (stitch h t).
+
+Lemma consbK {n} (x : n.+1.-bits) : consb (headb x) (tailb x) = x.
+Proof. by rewrite /consb /headb /tailb stitchK cast_ordK. Qed.
+
+Lemma headbK {n} b (x : n.-bits) : headb (consb b x) = b.
+Proof. by rewrite /consb /headb cast_ordKV lowerK. Qed.
+
+Lemma tailbK {n} b (x : n.-bits) : tailb (consb b x) = x.
+Proof. by rewrite /consb /tailb cast_ordKV upperK. Qed.
+
+
+Fixpoint bitwise {n} (f : 'Z_2 → 'Z_2 → 'Z_2) : n.-bits → n.-bits → n.-bits :=
+  match n with
+  | n'.+1 => λ x y, consb (f (headb x) (headb y)) (bitwise f (tailb x) (tailb y))
+  | 0 => λ x y, nilb
+  end.
+
+Definition xor {n : nat} : n.-bits → n.-bits → n.-bits := bitwise +%R.
 
 Notation "x ⊕ y" := (xor x y) (at level 40).
- *)
+
+Fixpoint bits0 {n} : n.-bits :=
+  match n with
+  | n'.+1 => consb 0 bits0
+  | 0 => nilb
+  end.
+
+Lemma bit_add_sub (x y : 'Z_2) : x + y = x - y.
+Proof.
+  apply ord_inj => //=.
+  destruct x, y. unfold Zp_trunc in *. simpl in *.
+  destruct m, m0 => //; destruct m0 => //. 
+Qed.
+
+Lemma eq_nilb x : x = nilb.
+Proof. by rewrite 2!ord1. Qed.
+
+Lemma xorA {n} (x y z : n.-bits) : (x ⊕ y) ⊕ z = x ⊕ (y ⊕ z).
+Proof.
+  unfold xor. induction n => //=.
+  by rewrite 2!headbK 2!tailbK GRing.addrA IHn.
+Qed.
+
+Lemma xorC {n} (x y : n.-bits) : x ⊕ y = y ⊕ x.
+Proof.
+  unfold xor. induction n => //=.
+  by rewrite GRing.addrC IHn.
+Qed.
+
+Lemma xorbb {n} (x : n.-bits) : x ⊕ x = bits0.
+Proof.
+  unfold xor. induction n => //=.
+  by rewrite bit_add_sub /xor IHn //= GRing.subrr.
+Qed.
+
+Lemma xor0b {n} (x : n.-bits) : bits0 ⊕ x = x.
+Proof.
+  unfold xor. induction n => //=; [ symmetry; apply eq_nilb |].
+  by rewrite headbK tailbK GRing.add0r IHn consbK.
+Qed.
+
+Lemma xorb0 {n} (x : n.-bits) : x ⊕ bits0 = x.
+Proof.
+  unfold xor. induction n => //=; [ symmetry; apply eq_nilb |].
+  by rewrite headbK tailbK GRing.addr0 IHn consbK.
+Qed.
+
+Lemma xorKb {n} (x y : n.-bits) : x ⊕ (x ⊕ y) = y.
+Proof. by rewrite -xorA xorbb xor0b. Qed.
+
+Lemma xorbK {n} (x y : n.-bits) : (y ⊕ x) ⊕ x = y.
+Proof. by rewrite xorA xorbb xorb0. Qed.
+
+Lemma xor_bij {n} (x : n.-bits) : bijective (λ y, x ⊕ y).
+Proof. exists (λ y, x ⊕ y) => y; by rewrite xorKb. Qed.
+
+End Bits.
+
+Notation "x ⊕ y" := (xor x y) (at level 40).
+
 
 Section ExtraLemmas.
   Lemma codomm_set {T S : ordType} (L : {fmap T → S}) t s
