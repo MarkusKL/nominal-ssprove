@@ -5,6 +5,7 @@ theories/ParTests.v
 theories/KEMDEM.v
 theories/PRFMAC.v
 theories/Assumptions/Replacement.v
+theories/Assumptions/Nonce.v
 theories/Primitives/PRP.v
 theories/Primitives/PRF.v
 theories/Primitives/SKE.v

@@ -353,9 +353,9 @@ Proof.
         subst. by rewrite eq_refl /= eq_refl.
       * rewrite xpair_eqE in E.
         destruct (m' == m)%B eqn:Em; rewrite Em //=.
-        simpl in E. rewrite E.
-        move: Em => /eqP Em.
-        by rewrite Hinv Em Heqt.
+        rewrite -(inj_eq Some_inj) /= in E.
+        move=> /eqP in Em.
+        by rewrite E Hinv Em Heqt.
   - ssprove_code_simpl.
     ssprove_code_simpl_more.
     apply: r_get_remember_lhs => T.

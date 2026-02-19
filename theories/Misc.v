@@ -22,12 +22,22 @@ Ltac ssp_prhl_eq :=
   eapply eq_rel_perf_ind_eq;
   let arg := fresh "arg" in simplify_eq_rel arg.
 
+Ltac ssprove_restore_pre ::=
+  update_pre_fold ;
+  eapply r_restore_pre.
+
+Ltac ssprove_restore_mem ::=
+  update_pre_fold ;
+  remember_pre_fold ;
+  eapply r_restore_mem.
+
 Ltac ssp_restore :=
   (ssprove_restore_mem; [ ssprove_invariant; try done |]) ||
   (ssprove_restore_pre; [ ssprove_invariant; try done |]) ||
   ssprove_forget_all.
 
 Ltac ssp_ret := ssp_restore; [ .. | apply r_ret; try done ].
+
 
 Notation uniformZ n := (uniform (Zp_trunc n).+2).
 
@@ -172,6 +182,17 @@ Notation "x ⊕ y" := (xor x y) (at level 40).
 
 
 Section ExtraLemmas.
+  Definition compl {N} (R : {fset 'I_N}) : {fset 'I_N} :=
+    fset (ord_enum N) :\: R.
+
+  Lemma in_compl {N} (a : 'I_N) (A : {fset 'I_N}):
+    (a \in compl A) = (a \notin A).
+  Proof. by rewrite in_fsetD in_fset mem_ord_enum andbC. Qed.
+
+  Program Definition bump {N} (l : {fset 'I_N}) : 'I_(N - size l) → 'I_N
+    := λ r, nth _ (compl l) r.
+  Obligation 1. destruct l. destruct fsval => //. by rewrite /= subn0 in r. Qed.
+
   Lemma codomm_set {T S : ordType} (L : {fmap T → S}) t s
     : t \notin domm L → codomm (setm L t s) = s |: codomm L.
   Proof.

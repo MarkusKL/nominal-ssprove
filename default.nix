@@ -3,7 +3,7 @@ let
   src = pkgs.fetchFromGitHub {
     owner = "SSProve";
     repo = "ssprove";
-    rev = "4e851b76fc6dd3ff50616e8dace4cd832a480e80"; # 05-12-2025
-    sha256 = "6l1KeE5I5cqWHaXVZW3Is2aMbPJnVhOEad+3SuBX9xs=";
+    rev = "58909a89e4542acc96c7e48396ee14dddcbc6177"; # 04-02-2026
+    sha256 = "otYCpwCdBn4LF7FSjEGx3oVvFC/okgDkNayoGkRoXeI=";
   };
 in import "${src}/default.nix"

@@ -1,4 +1,4 @@
-From NominalSSP Require Import Options Misc Replacement PRF SKE.
+From NominalSSP Require Import Options Misc Nonce PRF SKE.
 
 Section PRFSKE.
   Context (K N : nat) (F : K.-bits → N.-bits → N.-bits).
@@ -30,14 +30,14 @@ Section PRFSKE.
     rewrite xorbK. ssp_ret.
   Qed.
 
-  Definition MOD_CPA : package (unionm (I_PRF N) (I_SAMPLE (2 ^ N))) (I_CPA PRFSKE) :=
+  Definition MOD_CPA : package (unionm (I_PRF N) (I_Nonce (2 ^ N))) (I_CPA PRFSKE) :=
     [package emptym ;
       [ GEN ] (_) {
         _ ← call [ INIT ] tt ;;
         ret tt
       } ;
       [ QUERY ] (m) {
-        '(r, n) ← call [ SAMPLE ] : { unit ~> N.-bits × bool } tt ;;
+        '(r, n) ← call [ NONCE ] : { unit ~> N.-bits × bool } tt ;;
         v ← call [ QUERY ] : { N.-bits ~> N.-bits } r ;;
         if n then 
           ret (r, v ⊕ m)
@@ -48,7 +48,7 @@ Section PRFSKE.
     ].
 
   Lemma CPA_PRFSKE_1 : perfect (I_CPA PRFSKE)
-    (CPA0 PRFSKE) (MOD_CPA ∘ (PRF0 _ _ F || Replaced (2 ^ N))).
+    (CPA0 PRFSKE) (MOD_CPA ∘ (PRF0 _ _ F || Nonce0 (2 ^ N))).
   Proof.
     ssp_prhl (heap_ignore [fmap key_loc PRFSKE; PRF.key_loc K ]
       ⋊ couple_cross (key_loc PRFSKE) (PRF.key_loc K) eq).
@@ -62,10 +62,10 @@ Section PRFSKE.
   Qed.
 
   Lemma CPA_PRFSKE_2 : perfect (I_CPA PRFSKE)
-    (MOD_CPA ∘ (PRF1 N || NotReplaced (2 ^ N))) (CPA1 PRFSKE).
+    (MOD_CPA ∘ (PRF1 N || Nonce1 (2 ^ N))) (CPA1 PRFSKE).
   Proof.
-    ssp_prhl (heap_ignore [fmap prev_loc (2 ^ N); lazy_map_loc N]
-      ⋊ couple_lhs (prev_loc (2 ^ N)) (lazy_map_loc N) (λ prev L, fset prev = domm L)).
+    ssp_prhl (heap_ignore [fmap nonce_loc (2 ^ N); lazy_map_loc N]
+      ⋊ couple_lhs (nonce_loc (2 ^ N)) (lazy_map_loc N) (λ prev L, fset prev = domm L)).
     - ssp_ret.
     - ssp_simpl. ssprove_sync => r.
       apply r_get_remember_lhs => prev.
@@ -88,12 +88,12 @@ Section PRFSKE.
 
   Theorem CPA_PRFSKE A {VA : ValidPackage (loc A) (I_CPA PRFSKE) A_export A}
     : AdvOf (CPA PRFSKE) A <=
-      AdvOf (PRF K N F) (A ∘ MOD_CPA ∘ (ID (I_PRF N) || Replaced (2 ^ N))) +
-      AdvOf (Replacement (2 ^ N)) (A ∘ MOD_CPA ∘ (PRF1 N || ID (I_SAMPLE (2 ^ N)))).
+      AdvOf (PRF K N F) (A ∘ MOD_CPA ∘ (ID (I_PRF N) || Nonce0 (2 ^ N))) +
+      AdvOf (Nonce (2 ^ N)) (A ∘ MOD_CPA ∘ (PRF1 N || ID (I_Nonce (2 ^ N)))).
   Proof.
     rewrite (Adv_perfect_l CPA_PRFSKE_1) -(Adv_perfect_r CPA_PRFSKE_2).
     rewrite Adv_reduction.
-    ssprove_hop (PRF1 N || Replaced (2 ^ N)).
+    ssprove_hop (PRF1 N || Nonce0 (2 ^ N)).
     by rewrite Adv_par_l Adv_par_r -2!sep_link_assoc.
   Qed.
 End PRFSKE.

@@ -10,7 +10,7 @@ Section PRP.
 
   Definition I_PRP := [interface
     [ INIT ] : { unit ~> unit };
-    [ QUERY ] : { N.-bits ~> N.-bits × bool } ].
+    [ QUERY ] : { N.-bits ~> N.-bits } ].
 
   Definition key_loc := mkloc 4%N (None : option K.-bits).
 
@@ -23,7 +23,7 @@ Section PRP.
       } ;
       [ QUERY ] (x) {
         k ← getSome key_loc ;;
-        ret (F k x, true)
+        ret (F k x)
       }
     ].
 
@@ -37,11 +37,12 @@ Section PRP.
       [ QUERY ] (x) {
         L ← get lazy_map_loc ;;
         if L x is Some y then
-          ret (y, true)
+          ret y
         else
-          y ← sample uniform_bits N ;;
+          y ← sample uniform (2 ^ N - size (codomm L)) ;;
+          let y := bump (codomm L) y in
           #put lazy_map_loc := setm L x y ;;
-          ret (y, y \notin codomm L)
+          ret y
       }
     ].
   

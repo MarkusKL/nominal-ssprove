@@ -43,3 +43,8 @@ Student projects using Nominal-SSProve:
 * Building Commitment Schemes from Sigma-protocols:
     [petersabroe/thesis](https://github.com/petersabroe/thesis/tree/main/project/theories)
 
+## External Documentation
+
+* [Rocq v.9.1 Documentation](https://rocq-prover.org/doc/V9.1.0/refman/index.html)
+* [SSProve DOC.md](https://github.com/SSProve/ssprove/blob/main/DOC.md)
+
