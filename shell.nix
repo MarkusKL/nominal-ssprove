@@ -37,6 +37,5 @@ in pkgs.mkShell {
     # coqPackages.coq-lsp
     coqPackages.ssprove
     vimCustom
-    gnumake
   ];
 }

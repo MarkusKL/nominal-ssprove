@@ -1,0 +1,17 @@
+{
+  "name": "nominal-ssprove-devcontainer",
+  "image": "ghcr.io/xtruder/nix-devcontainer:v1",
+  "onCreateCommand": "mkdir -p ~/.config/nix && cp .devcontainer/nix.conf ~/.config/nix/ && nix-shell codespace.nix --run 'make'",
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "nixEnvSelector.nixFile": "${workspaceFolder}/codespace.nix"
+      },
+      "extensions": [
+        "arrterian.nix-env-selector",
+        "ejgallego.coq-lsp"
+      ]
+    }
+  }
+}
