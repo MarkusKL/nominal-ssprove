@@ -7,9 +7,6 @@ Notation dist := (code emptym [interface]).
   eapply valid_scheme ; eapply c.(prog_valid)
   : typeclass_instances ssprove_valid_db.  *)
 
-Ltac ssp_simpl :=
-  repeat (ssprove_code_simpl; simpl; ssprove_code_simpl_more).
-
 Ltac ssp_prhl inv :=
   ssprove_share; eapply prove_perfect;
   eapply (eq_rel_perf_ind _ _ inv);
@@ -211,3 +208,151 @@ Section ExtraLemmas.
         by move: E H' H => /eqP -> /dommPn ->.
   Qed.
 End ExtraLemmas.
+
+
+(* Experimental Code Simpl *)
+
+Lemma destruct_pair {A B C} {z : A * B} {f : A → B → C}
+  : (let (x, y) := z in f x y) = f z.1 z.2.
+Proof. by destruct z. Qed.
+
+Lemma code_link_if_Some (T A : choiceType) :
+  ∀ (c₀ : T → raw_code A) (c₁ : raw_code A)
+  (p : raw_package) (b : option T),
+  code_link (if b is Some x then c₀ x else c₁) p =
+  (if b is Some x then code_link (c₀ x) p else code_link c₁ p).
+Proof. by intros ? ? ? []. Qed.
+
+Definition hints :=
+  ( @destruct_pair
+  , @code_link_assertD
+  , @code_link_bind
+  , @code_link_if
+  , @code_link_if_Some
+  , @bind_assoc
+  , @resolve_set
+  , @resolve_link
+  , @resolve_ID_set
+  , @coerce_kleisliE
+  ).
+
+Ltac ssprove_simpl_more := idtac.
+
+Ltac ssprove_simpl := simpl ; repeat (first
+  [ (rewrite hints //=)
+  | (rewrite -> (code_link_scheme _ _ (_.(prog))) by apply prog_valid)
+  | (eapply r_transR ; [ eapply r_bind_assertD_sym | ])
+  | ssprove_simpl_more
+  ]).
+
+Lemma r_if_case_rule :
+  ∀ {A₀ A₁ : choiceType} (c₀ c₀' : raw_code A₀)
+    (c₁ c₁' : raw_code A₁) {b : bool} {pre : precond}
+    {post : postcond A₀ A₁}
+    , ⊢ ⦃ pre ⦄ c₀ ≈ c₁ ⦃ post ⦄
+    → ⊢ ⦃ pre ⦄ c₀' ≈ c₁' ⦃ post ⦄
+    → ⊢ ⦃ pre ⦄ if b then c₀ else c₀' ≈
+           if b then c₁ else c₁' ⦃ post ⦄.
+Proof. by intros ? ? ? ? ? ? []. Qed.
+
+Lemma r_if_case_rule_Some :
+  ∀ {T A₀ A₁ : choiceType} (c₀ : T → raw_code A₀) (c₀' : raw_code A₀)
+    (c₁ : T → raw_code A₁) (c₁' : raw_code A₁) {b : option T} {pre : precond}
+    {post : postcond A₀ A₁}
+    , (∀ t, ⊢ ⦃ pre ⦄ c₀ t ≈ c₁ t ⦃ post ⦄)
+    → ⊢ ⦃ pre ⦄ c₀' ≈ c₁' ⦃ post ⦄
+    → ⊢ ⦃ pre ⦄ if b is Some x then c₀ x else c₀' ≈
+           if b is Some x then c₁ x else c₁' ⦃ post ⦄.
+Proof. by intros ? ? ? ? ? ? ? []. Qed.
+
+Lemma rsame_head_eq :
+  ∀ {A B : choiceType} {f₀ f₁ : A → raw_code B}
+    {m₀ m₁ : raw_code A},
+    ⊢ ⦃ λ '(h₀, h₁), h₀ = h₁ ⦄ m₀ ≈ m₁ ⦃ eq ⦄ →
+    (∀ a, ⊢ ⦃ λ '(h₀, h₁), h₀ = h₁ ⦄ f₀ a ≈ f₁ a ⦃ eq ⦄) →
+    ⊢ ⦃ λ '(h₀, h₁), h₀ = h₁ ⦄ x ← m₀ ;; f₀ x ≈ x ← m₁ ;; f₁ x ⦃ eq ⦄.
+Proof.
+  intros A B f₀ f₁ m₀ m₁ Hm Hf.
+  eapply r_bind; [ apply Hm |] => a₀ a₁.
+  eapply rpre_hypothesis_rule => s₀ s H.
+  injection H => ? ? {H}; subst.
+  eapply rpre_weaken_rule; [ apply Hf |] => s₀ s₁ /= [? ?].
+  by subst.
+Qed.
+
+Lemma rsame_head_sample :
+  ∀ {B : choiceType} {op : Op} {f₀ f₁ : Arit op → raw_code B}
+    (post : postcond B B),
+    (∀ a : Arit op, ⊢ ⦃ λ '(h₀, h₁), h₀ = h₁ ⦄ f₀ a ≈ f₁ a ⦃ post ⦄)
+    → ⊢ ⦃ λ '(h₀, h₁), h₀ = h₁ ⦄ x ← sample op ;; f₀ x ≈ x ← sample op ;; f₁ x ⦃ post ⦄.
+Proof. intros. by apply (rsame_head_cmd (cmd_sample op)). Qed.
+
+Lemma rsame_head_get :
+  ∀ {B : choiceType} {l : Location} {f₀ f₁ : l → raw_code B}
+    (post : postcond B B),
+    (∀ a : l, ⊢ ⦃ λ '(h₀, h₁), h₀ = h₁ ⦄ f₀ a ≈ f₁ a ⦃ post ⦄)
+    → ⊢ ⦃ λ '(h₀, h₁), h₀ = h₁ ⦄ x ← get l ;; f₀ x ≈ x ← get l ;; f₁ x ⦃ post ⦄.
+Proof. intros. by apply (rsame_head_cmd (cmd_get l)). Qed.
+
+Lemma rsame_head_put :
+  ∀ {B : choiceType} {l : Location} {a : l} {f₀ f₁ : raw_code B}
+    (post : postcond B B),
+    ⊢ ⦃ λ '(h₀, h₁), h₀ = h₁ ⦄ f₀ ≈ f₁ ⦃ post ⦄
+    → ⊢ ⦃ λ '(h₀, h₁), h₀ = h₁ ⦄ #put l := a ;; f₀ ≈ #put l := a ;; f₁ ⦃ post ⦄.
+Proof. intros. by apply (@rsame_head_cmd _ _ (λ _, _) (λ _, _) (cmd_put l a)). Qed.
+
+Ltac ssprove_rel_cong_rhs_extra c :=
+  idtac "failed to traverse:" c.
+
+Ltac ssprove_rel_cong_rhs :=
+  lazymatch goal with
+  | |- ⊢ ⦃ _ ⦄ ?lhs ≈ ?c ⦃ _ ⦄ =>
+    lazymatch c with
+    | x ← sample ?op ;; _ =>
+      let n := fresh x in
+      tryif is_evar lhs
+        then instantiate (1 := sampler _ (λ n, _)) else idtac ;
+      eapply (@rsame_head_sample _ op (λ n, _)) (*; intros ?*)
+    | #put ?ℓ := ?v ;; _ =>
+      eapply rsame_head_put
+    | x ← get ?ℓ ;; _ =>
+      let n := fresh x in
+      tryif is_evar lhs
+        then instantiate (1 := getr _ (λ n, _)) else idtac ;
+      eapply (@rsame_head_get _ ℓ (λ n, _)) (*; intros ?*)
+    | @assertD ?A ?b (λ x, _) =>
+      let n := fresh x in
+      tryif is_evar lhs
+        then instantiate (1 := assertD _ (λ n, _)) else idtac ;
+      eapply (@r_assertD_same A b _ _ (λ n, _)) (*; intros ?*)
+    | @bind ?A ?B _ (λ x, _) =>
+      let n := fresh x in
+      tryif is_evar lhs
+        then instantiate (1 := @bind A B _ (λ n, _)) else idtac ;
+      eapply (@rsame_head_eq A B (λ n, _)) (*; [| intros ? ]*)
+    | if ?e then _ else _ =>
+      eapply r_if_case_rule
+    | if ?e is Some _ then _ else _ =>
+      eapply r_if_case_rule_Some
+    | fail =>
+      eapply @rreflexivity_rule
+    | ret _ =>
+      eapply @rreflexivity_rule
+    | prog _ =>
+      eapply @rreflexivity_rule
+    | c => ssprove_rel_cong_rhs_extra c
+    end
+  end.
+
+Ltac ssprove_sync_eq ::= ssprove_rel_cong_rhs.
+
+Ltac ssp_simpl :=
+  lazymatch goal with
+  | |- ⊢ ⦃ _ ⦄ _ ≈ _ ⦃ _ ⦄ =>
+    eapply rel_jdg_replace_sem ; [
+    | (*solve [*) repeat (ssprove_simpl ; ssprove_rel_cong_rhs ; intros)
+    | (*solve [*) repeat (ssprove_simpl ; ssprove_rel_cong_rhs ; intros)
+    ]
+  | |- _ =>
+    fail "ssprove_code_simpl_more: goal should be syntactic judgment"
+  end.

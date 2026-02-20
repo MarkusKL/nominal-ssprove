@@ -5,14 +5,18 @@ Section PRPPRF.
   
   Definition MOD_Replacement : package (I_Sample (2 ^ N)) (I_PRP N) :=
     [package [fmap lazy_map_loc N ] ;
-      [ INIT ] (_) { ret tt } ;
+      [ INIT ] (_) {
+        getNone lazy_map_loc N ;;
+        #put lazy_map_loc N := Some emptym ;;
+        ret tt
+      } ;
       [ QUERY ] (x) {
-        L ← get lazy_map_loc N ;;
+        L ← getSome lazy_map_loc N ;;
         if L x is Some y then
           ret y
         else
           y' ← call [ SAMPLE ] tt ;;
-          #put lazy_map_loc N := setm L x y' ;;
+          #put lazy_map_loc N := Some (setm L x y') ;;
           ret y'
       }
     ].
@@ -20,11 +24,17 @@ Section PRPPRF.
   Lemma PRP_MOD_Replacement : perfect
     (I_PRP N) (PRP1 N) (MOD_Replacement ∘ NotReplaced (2 ^ N)).
   Proof.
-    ssp_prhl (heap_ignore [fmap prev_loc (2 ^ N) ]
-      ⋊ couple_rhs (lazy_map_loc N) (prev_loc (2 ^ N)) (λ L prev, fset prev = codomm L)).
-    - ssp_ret.
+    ssp_prhl (heap_ignore [fmap prev_loc (2 ^ N) ] ⋊
+      couple_rhs (lazy_map_loc N) (prev_loc (2 ^ N))
+        (λ L prev, fset prev = codomm (odflt emptym L))).
+    - apply: r_get_vs_get_remember => L.
+      rewrite code_link_assertD. (* ?? *)
+      ssprove_sync => /eqP {L}->.
+      (* ssprove_code_simpl_more.  "No applicable tactic." error *)
+      apply r_put_vs_put. ssp_ret.
     - ssp_simpl. 
       apply r_get_vs_get_remember => L.
+      ssprove_sync => HL. destruct L as [L|] => //= {HL}.
       destruct (L arg) eqn:E; rewrite E; [ ssp_ret |].
       apply r_get_remember_rhs => prev.
       ssprove_rem_rel 0%N => <-.
@@ -39,8 +49,14 @@ Section PRPPRF.
     (I_PRF N) (PRF1 N) (MOD_Replacement ∘ Replaced (2 ^ N)).
   Proof.
     ssp_prhl_eq.
-    - ssp_ret.
+    - apply: r_get_vs_get_remember => L.
+      rewrite code_link_assertD. (* ?? *)
+      ssprove_sync => /eqP {L}->.
+      (* ssprove_code_simpl_more.  "No applicable tactic." error *)
+      apply r_put_vs_put. ssp_ret.
     - ssprove_sync_eq => L.
+      rewrite code_link_assertD.
+      ssprove_sync_eq => HL. destruct L as [L|] => //= {HL}.
       destruct (L arg) eqn:E; rewrite E; [ ssp_ret |].
       ssp_simpl.
       ssprove_sync_eq => y.
@@ -60,6 +76,8 @@ Section PRPPRF.
   Proof.
     ssp_prhl (heap_ignore emptym). (* Why can this not be eq invariant *)
     - ssprove_sync => k.
+      ssprove_sync => {k}_.
+      ssprove_sync => k.
       apply r_put_vs_put.
       ssp_ret.
     - ssprove_sync => o_k.

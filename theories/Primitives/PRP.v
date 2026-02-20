@@ -17,6 +17,7 @@ Section PRP.
   Definition PRP0 : game I_PRP :=
     [package [fmap key_loc] ;
       [ INIT ] (_) { 
+        getNone key_loc ;;
         k ← sample uniform_bits K ;;
         #put key_loc := Some k ;;
         ret tt
@@ -27,21 +28,23 @@ Section PRP.
       }
     ].
 
-  Definition lazy_map_loc := mkloc 4%N (emptym : {fmap N.-bits → N.-bits}).
+  Definition lazy_map_loc := mkloc 4%N (None : option {fmap N.-bits → N.-bits}).
 
   Definition PRP1 : game I_PRP :=
     [package [fmap lazy_map_loc ] ;
       [ INIT ] (_) {
+        getNone lazy_map_loc ;;
+        #put lazy_map_loc := Some emptym ;;
         ret tt
       } ;
       [ QUERY ] (x) {
-        L ← get lazy_map_loc ;;
+        L ← getSome lazy_map_loc ;;
         if L x is Some y then
           ret y
         else
           y ← sample uniform (2 ^ N - size (codomm L)) ;;
           let y := bump (codomm L) y in
-          #put lazy_map_loc := setm L x y ;;
+          #put lazy_map_loc := Some (setm L x y) ;;
           ret y
       }
     ].

@@ -16,3 +16,5 @@ CoqMakefile.conf
 
 # nix
 result
+
+/theories/Draft/

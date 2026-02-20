@@ -65,6 +65,7 @@ Section SKE.
   Definition CPA0 : game I_CPA :=
     [package [fmap key_loc] ;
       [ GEN ] (_) {
+        getNone key_loc ;;
         k ← P.(KeyDist) ;;
         #put key_loc := Some k ;;
         ret tt
@@ -76,12 +77,17 @@ Section SKE.
       }
     ].
 
+  Definition init_loc := mkloc 2%N (None : option unit).
+
   Definition CPA1 : game I_CPA :=
-    [package [fmap key_loc] ;
+    [package [fmap init_loc] ;
       [ GEN ] (_) {
+        getNone init_loc ;;
+        #put init_loc := Some tt ;;
         ret tt
       } ;
       [ QUERY ] (m) {
+        _ ← getSome init_loc ;;
         c ← P.(CipDist) ;;
         ret c
       }

@@ -30,7 +30,8 @@ Section PRFSKE.
     rewrite xorbK. ssp_ret.
   Qed.
 
-  Definition MOD_CPA : package (unionm (I_PRF N) (I_Nonce (2 ^ N))) (I_CPA PRFSKE) :=
+  Definition MOD_CPA :
+    package (unionm (I_PRF N) (I_Nonce (2 ^ N))) (I_CPA PRFSKE) :=
     [package emptym ;
       [ GEN ] (_) {
         _ ← call [ INIT ] tt ;;
@@ -52,7 +53,12 @@ Section PRFSKE.
   Proof.
     ssp_prhl (heap_ignore [fmap key_loc PRFSKE; PRF.key_loc K ]
       ⋊ couple_cross (key_loc PRFSKE) (PRF.key_loc K) eq).
-    - ssprove_sync => k. apply r_put_vs_put. ssp_ret.
+    - ssp_simpl.
+      eapply r_get_remember_lhs => k.
+      eapply r_get_remember_rhs => k'.
+      ssprove_rem_rel 0%N => {k'}<-. (* ?? *)
+      ssprove_sync => /eqP {k}->.
+      ssprove_sync => k. apply r_put_vs_put. ssp_ret.
     - ssprove_swap_seq_lhs [:: 1%N; 0%N ].
       ssprove_sync => r.
       eapply r_get_remember_lhs => k.
@@ -64,22 +70,39 @@ Section PRFSKE.
   Lemma CPA_PRFSKE_2 : perfect (I_CPA PRFSKE)
     (MOD_CPA ∘ (PRF1 N || Nonce1 (2 ^ N))) (CPA1 PRFSKE).
   Proof.
-    ssp_prhl (heap_ignore [fmap nonce_loc (2 ^ N); lazy_map_loc N]
-      ⋊ couple_lhs (nonce_loc (2 ^ N)) (lazy_map_loc N) (λ prev L, fset prev = domm L)).
-    - ssp_ret.
-    - ssp_simpl. ssprove_sync => r.
+    ssp_prhl (heap_ignore [fmap nonce_loc (2 ^ N); lazy_map_loc N; init_loc] ⋊
+      couple_cross (lazy_map_loc N) init_loc
+        (λ L init, omap (λ _, tt) L = init) ⋊
+      couple_lhs (nonce_loc (2 ^ N)) (lazy_map_loc N)
+        (λ prev L, fset prev = domm (odflt emptym L))).
+    - ssp_simpl.
+      eapply r_get_remember_lhs => L.
+      eapply r_get_remember_rhs => init.
+      ssprove_rem_rel 1%N => {init}<-. (* ?? *)
+      destruct L => //=; [ apply r_fail |].
+      apply r_put_vs_put. ssp_ret.
+    - ssp_simpl.
+      apply r_get_remember_rhs => init.
+      ssprove_swap_rhs 0%N.
+      ssprove_sync => r.
       apply r_get_remember_lhs => prev.
       destruct (r \in prev) eqn:E; rewrite E /=.
       + apply r_get_remember_lhs => L.
+        ssprove_rem_rel 1%N => {init}<-.
+        ssp_simpl.
+        destruct L as [L|] => //=; [| apply r_fail ].
         ssprove_rem_rel 0%N => Hprev.
         rewrite -in_fset Hprev in E.
         move: E => /dommP [v ->] /=.
         ssprove_sync => ?. ssp_ret.
       + ssprove_swap_lhs 0%N.
         apply r_get_remember_lhs => L.
+        ssprove_swap_lhs 0%N.
+        ssprove_rem_rel 1%N => {init}<-.
+        destruct L as [L|] => //=; [| apply r_fail ].
         ssprove_rem_rel 0%N => Hprev.
         rewrite -in_fset Hprev in E.
-        move: E => /dommPn ->.
+        move: E => /dommPn ->. ssp_simpl.
         ssprove_swap_lhs 0%N.
         eapply r_uniform_bij; [ apply (xor_bij arg) |] => c1 /=.
         rewrite xorC. do 2 apply r_put_lhs.
