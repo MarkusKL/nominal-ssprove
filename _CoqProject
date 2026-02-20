@@ -2,8 +2,6 @@
 theories/Options.v
 theories/Misc.v
 theories/ParTests.v
-theories/KEMDEM.v
-theories/PRFMAC.v
 theories/Assumptions/Replacement.v
 theories/Assumptions/Nonce.v
 theories/Primitives/PRP.v
@@ -14,3 +12,4 @@ theories/Constructions/OTP_bits.v
 theories/Constructions/PRP_PRF.v
 theories/Constructions/PRF_SKE.v
 theories/Reductions/MAC.v
+theories/Standalone/KEMDEM.v
