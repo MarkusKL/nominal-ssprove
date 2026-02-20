@@ -6,7 +6,7 @@
   "customizations": {
     "vscode": {
       "settings": {
-        "nixEnvSelector.nixFile": "${workspaceFolder}/codespace.nix"
+        "nixEnvSelector.nixFile": "${workspaceFolder}/.devcontainer/codespace.nix"
       },
       "extensions": [
         "arrterian.nix-env-selector",
