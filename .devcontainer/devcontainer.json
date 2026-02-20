@@ -1,7 +1,7 @@
 {
   "name": "nominal-ssprove-devcontainer",
   "image": "ghcr.io/xtruder/nix-devcontainer:v1",
-  "onCreateCommand": "mkdir -p ~/.config/nix && cp .devcontainer/nix.conf ~/.config/nix/ && nix-shell codespace.nix --run 'make'",
+  "onCreateCommand": "mkdir -p ~/.config/nix && cp .devcontainer/nix.conf ~/.config/nix/ && nix-shell .devcontainer/codespace.nix --run 'make'",
 
   "customizations": {
     "vscode": {
