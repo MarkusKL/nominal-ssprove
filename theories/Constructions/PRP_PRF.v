@@ -21,20 +21,19 @@ Section PRPPRF.
       }
     ].
 
+
   Lemma PRP_MOD_Replacement : perfect
     (I_PRP N) (PRP1 N) (MOD_Replacement ∘ NotReplaced (2 ^ N)).
   Proof.
     ssp_prhl (heap_ignore [fmap prev_loc (2 ^ N) ] ⋊
       couple_rhs (lazy_map_loc N) (prev_loc (2 ^ N))
         (λ L prev, fset prev = codomm (odflt emptym L))).
-    - apply: r_get_vs_get_remember => L.
-      rewrite code_link_assertD. (* ?? *)
-      ssprove_sync => /eqP {L}->.
-      (* ssprove_code_simpl_more.  "No applicable tactic." error *)
+    - apply: r_get_vs_get_remember => x.
+      apply r_matchNone => {x}->.
       apply r_put_vs_put. ssp_ret.
     - ssp_simpl. 
-      apply r_get_vs_get_remember => L.
-      ssprove_sync => HL. destruct L as [L|] => //= {HL}.
+      apply r_get_vs_get_remember => oL.
+      apply r_matchSome => L {oL}->.
       destruct (L arg) eqn:E; rewrite E; [ ssp_ret |].
       apply r_get_remember_rhs => prev.
       ssprove_rem_rel 0%N => <-.
@@ -50,15 +49,12 @@ Section PRPPRF.
   Proof.
     ssp_prhl_eq.
     - apply: r_get_vs_get_remember => L.
-      rewrite code_link_assertD. (* ?? *)
-      ssprove_sync => /eqP {L}->.
-      (* ssprove_code_simpl_more.  "No applicable tactic." error *)
+      apply r_matchNone => ->.
       apply r_put_vs_put. ssp_ret.
-    - ssprove_sync_eq => L.
-      rewrite code_link_assertD.
-      ssprove_sync_eq => HL. destruct L as [L|] => //= {HL}.
-      destruct (L arg) eqn:E; rewrite E; [ ssp_ret |].
+    - ssprove_sync_eq => oL.
+      apply: r_matchSome => L {oL}_.
       ssp_simpl.
+      destruct (L arg) eqn:E; rewrite E; [ ssp_ret |].
       ssprove_sync_eq => y.
       ssprove_sync_eq.
       ssp_ret.

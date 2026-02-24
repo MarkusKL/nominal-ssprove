@@ -356,3 +356,148 @@ Ltac ssp_simpl :=
   | |- _ =>
     fail "ssprove_code_simpl_more: goal should be syntactic judgment"
   end.
+
+
+Definition matchNone {T : choice_type} (v : option T) : Op
+  := ('unit; if v is None then dunit tt else dnull).
+
+Definition matchSome {T : choice_type} (v : option T) : Op
+  := (T; if v is Some a then dunit a else dnull).
+
+#[export] Instance LosslessOp_dunit {T : choice_type} (t : T)
+  : LosslessOp (T; dunit t).
+Proof. apply Couplings.psum_SDistr_unit. Qed.
+
+Lemma r_unit_ret :
+  ∀ {T : choice_type} (v : T),
+    ⊢ ⦃ λ '(s0, s1), s0 = s1 ⦄ ret v ≈ x ← sample (T; dunit v) ;; ret x ⦃ eq ⦄.
+Proof.
+  intros.
+  eapply from_sem_jdg.
+  move=> [h1 h2] /= a [hpre hpost].
+  exists (dunit ((v, h1), (v, h2))). split.
+  - unfold Couplings.coupling, Couplings.lmg, Couplings.rmg. split.
+    + by rewrite dmarginE dlet_unit_ext.
+    + by rewrite /SDistr_bind dmarginE 2!dlet_unit_ext.
+  - move=> [a1 h1'] [a2 h2'] H /=.
+    apply hpost.
+    rewrite dunit1E in H.
+    destruct (_ == _)%B eqn:E; move=> /eqP in E.
+    + apply pair_equal_spec in E as [E1 E2].
+      apply pair_equal_spec in E1, E2.
+      destruct E1, E2. by subst.
+    + by rewrite ltxx in H.
+Qed.
+
+Lemma r_unit_lhs :
+  ∀ {A A' : choiceType} {T : choice_type} (v : T) (c₀ : T → raw_code A)
+    (c₁ : raw_code A') (pre : precond) (post : postcond A A'),
+    (⊢ ⦃ pre ⦄ c₀ v ≈ c₁ ⦃ post ⦄) → ⊢ ⦃ pre ⦄
+       x ← sample (T; dunit v) ;; c₀ x ≈ c₁ ⦃ post ⦄.
+Proof.
+  intros.
+  eapply r_transL; [| apply H ].
+  eapply (r_bind (ret v) (y ← sample (T; dunit v) ;; ret y));
+    [ apply r_unit_ret |].
+  move=> a a'. eapply rpre_hypothesis_rule.
+  move=> s0 s1 H'. apply pair_equal_spec in H' as [H1 H2].
+  subst. eapply rpre_weaken_rule.
+  - eapply rreflexivity_rule.
+  - move=> s0' s1' /= [H1 H2]. by subst.
+Qed.
+
+Lemma r_unit_rhs :
+  ∀ {A A' : choiceType} {T : choice_type} (v : T) (c₀ : raw_code A)
+    (c₁ : T → raw_code A') (pre : precond) (post : postcond A A'),
+    (⊢ ⦃ pre ⦄ c₀ ≈ c₁ v ⦃ post ⦄) → ⊢ ⦃ pre ⦄
+       c₀ ≈ x ← sample (T; dunit v) ;; c₁ x ⦃ post ⦄.
+Proof.
+  intros.
+  eapply r_transR; [| apply H ].
+  eapply (r_bind (ret v) (y ← sample (T; dunit v) ;; ret y));
+    [ apply r_unit_ret |].
+  move=> a a'. eapply rpre_hypothesis_rule.
+  move=> s0 s1 H'. apply pair_equal_spec in H' as [H1 H2].
+  subst. eapply rpre_weaken_rule.
+  - eapply rreflexivity_rule.
+  - move=> s0' s1' /= [H1 H2]. by subst.
+Qed.
+
+Lemma r_sample_null :
+  ∀ {A A' : choiceType} {T T' : choice_type}
+    (c₀ : T → raw_code A) (c₁ : T' → raw_code A')
+    (pre : precond) (post : postcond A A'),
+    ⊢ ⦃ pre ⦄ x ← sample (T; dnull) ;; c₀ x
+            ≈ x ← sample (T'; dnull) ;; c₁ x ⦃ post ⦄.
+Proof.
+  intros. eapply (r_bind fail fail _ _ _ (λ _ _, False));
+    [ apply r_fail | intros; by apply rpre_hypothesis_rule ].
+Qed.
+
+Lemma r_matchNone_lhs :
+  ∀ {A A' : choiceType} {T : choice_type} (c₀ : unit → raw_code A)
+    (c₁ : raw_code A') (pre : precond) (post : postcond A A'),
+    ⊢ ⦃ pre ⦄ c₀ tt ≈ c₁ ⦃ post ⦄ →
+    ⊢ ⦃ pre ⦄ x ← sample (@matchNone T None) ;; c₀ x ≈ c₁ ⦃ post ⦄.
+Proof. intros. by apply (r_unit_lhs tt). Qed.
+
+Lemma r_matchNone_rhs :
+  ∀ {A A' : choiceType} {T : choice_type} (c₀ : raw_code A)
+    (c₁ : unit → raw_code A') (pre : precond) (post : postcond A A'),
+    ⊢ ⦃ pre ⦄ c₀ ≈ c₁ tt ⦃ post ⦄ →
+    ⊢ ⦃ pre ⦄ c₀ ≈ x ← sample (@matchNone T None) ;; c₁ x ⦃ post ⦄.
+Proof. intros. by apply (r_unit_rhs tt). Qed.
+
+Lemma r_matchNone :
+  ∀ {A A' : choiceType} {T : choice_type} (v : option T)
+    (c₀ : unit → raw_code A) (c₁ : unit → raw_code A')
+    (pre : precond) (post : postcond A A'),
+    (v = None → ⊢ ⦃ pre ⦄ c₀ tt ≈ c₁ tt ⦃ post ⦄) →
+    ⊢ ⦃ pre ⦄ x ← sample (@matchNone T v) ;; c₀ x
+            ≈ x ← sample (@matchNone T v) ;; c₁ x ⦃ post ⦄.
+Proof.
+  intros. destruct v; [ eapply r_sample_null |].
+  by apply r_matchNone_lhs, r_matchNone_rhs, H.
+Qed.
+
+Lemma r_matchSome_lhs :
+  ∀ {A A' : choiceType} {T : choice_type} (v : T) (c₀ : T → raw_code A)
+    (c₁ : raw_code A') (pre : precond) (post : postcond A A'),
+    ⊢ ⦃ pre ⦄ c₀ v ≈ c₁ ⦃ post ⦄ →
+    ⊢ ⦃ pre ⦄ x ← sample (matchSome (Some v)) ;; c₀ x ≈ c₁ ⦃ post ⦄.
+Proof. intros. by apply r_unit_lhs. Qed.
+
+Lemma r_matchSome_rhs :
+  ∀ {A A' : choiceType} {T : choice_type} (v : T) (c₀ : raw_code A)
+    (c₁ : T → raw_code A') (pre : precond) (post : postcond A A'),
+    ⊢ ⦃ pre ⦄ c₀ ≈ c₁ v ⦃ post ⦄ →
+    ⊢ ⦃ pre ⦄ c₀ ≈ x ← sample (matchSome (Some v)) ;; c₁ x ⦃ post ⦄.
+Proof. intros. by apply r_unit_rhs. Qed.
+
+Lemma r_matchSome :
+  ∀ {A A' : choiceType} {T : choice_type} (v : option T)
+    (c₀ : T → raw_code A) (c₁ : T → raw_code A')
+    (pre : precond) (post : postcond A A'),
+    (∀ v', v = Some v' → ⊢ ⦃ pre ⦄ c₀ v' ≈ c₁ v' ⦃ post ⦄) →
+    ⊢ ⦃ pre ⦄ x ← sample (matchSome v) ;; c₀ x
+            ≈ x ← sample (matchSome v) ;; c₁ x ⦃ post ⦄.
+Proof.
+  intros. destruct v; [| apply r_sample_null ].
+  by apply r_matchSome_lhs, r_matchSome_rhs, H.
+Qed.
+
+Notation "'getNone' n ;; c" :=
+  ( v ← get n ;;
+    _ ← sample (matchNone v) ;;
+    c )
+  (at level 100, n at next level, right associativity,
+  format "getNone  n  ;;  '//' c")
+  : package_scope.
+
+Notation "x ← 'getSome' n ;; c" :=
+  ( v ← get n ;;
+    x ← sample (matchSome v) ;;
+    c )
+  (at level 100, n at next level, right associativity,
+  format "x  ←  getSome  n  ;;  '//' c")
+  : package_scope.

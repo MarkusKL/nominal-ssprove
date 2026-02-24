@@ -57,14 +57,14 @@ Section PRFSKE.
       eapply r_get_remember_lhs => k.
       eapply r_get_remember_rhs => k'.
       ssprove_rem_rel 0%N => {k'}<-. (* ?? *)
-      ssprove_sync => /eqP {k}->.
+      apply r_matchNone => {k}->.
       ssprove_sync => k. apply r_put_vs_put. ssp_ret.
     - ssprove_swap_seq_lhs [:: 1%N; 0%N ].
       ssprove_sync => r.
       eapply r_get_remember_lhs => k.
       eapply r_get_remember_rhs => k'.
-      ssprove_rem_rel 0%N => {k'}<-. ssp_simpl.
-      destruct k; [ rewrite //= xorC; ssp_ret | apply r_fail ].
+      ssprove_rem_rel 0%N => {k'}<-. apply: r_matchSome => k' {k}->.
+      rewrite xorC. ssp_ret.
   Qed.
 
   Lemma CPA_PRFSKE_2 : perfect (I_CPA PRFSKE)
@@ -78,8 +78,9 @@ Section PRFSKE.
     - ssp_simpl.
       eapply r_get_remember_lhs => L.
       eapply r_get_remember_rhs => init.
-      ssprove_rem_rel 1%N => {init}<-. (* ?? *)
-      destruct L => //=; [ apply r_fail |].
+      ssprove_rem_rel 1%N => {init}<-.
+      destruct L => //=; [ apply: r_sample_null |].
+      apply: r_matchNone => _.
       apply r_put_vs_put. ssp_ret.
     - ssp_simpl.
       apply r_get_remember_rhs => init.
@@ -90,7 +91,8 @@ Section PRFSKE.
       + apply r_get_remember_lhs => L.
         ssprove_rem_rel 1%N => {init}<-.
         ssp_simpl.
-        destruct L as [L|] => //=; [| apply r_fail ].
+        destruct L as [L|] => //=; [| apply: r_sample_null ].
+        apply: r_matchSome_lhs. apply: r_matchSome_rhs.
         ssprove_rem_rel 0%N => Hprev.
         rewrite -in_fset Hprev in E.
         move: E => /dommP [v ->] /=.
@@ -99,7 +101,8 @@ Section PRFSKE.
         apply r_get_remember_lhs => L.
         ssprove_swap_lhs 0%N.
         ssprove_rem_rel 1%N => {init}<-.
-        destruct L as [L|] => //=; [| apply r_fail ].
+        destruct L as [L|] => //=; [| apply: r_sample_null ].
+        apply: r_matchSome_lhs. apply: r_matchSome_rhs.
         ssprove_rem_rel 0%N => Hprev.
         rewrite -in_fset Hprev in E.
         move: E => /dommPn ->. ssp_simpl.

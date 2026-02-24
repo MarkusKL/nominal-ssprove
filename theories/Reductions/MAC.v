@@ -162,14 +162,16 @@ Section MAC.
       apply r_get_remember_lhs => L.
       apply r_get_remember_rhs => L'.
       ssprove_rem_rel 1%N => [[/eqP H _]].
-      destruct L, L' => //=; [ apply r_fail |].
+      destruct L, L' => //=; [ apply: r_sample_null |].
+      apply r_matchNone => _.
       apply r_put_vs_put. ssp_ret.
     - destruct arg as [x y].
       ssp_simpl.
       apply r_get_remember_lhs => L.
       apply r_get_remember_rhs => L'.
       ssprove_rem_rel 1%N => [[/eqP H' H]].
-      destruct L as [L|], L' as [L'|] => //=; [| apply r_fail ].
+      destruct L as [L|], L' as [L'|] => //=; [| apply: r_sample_null ].
+      apply: r_matchSome_lhs. apply: r_matchSome_rhs.
       destruct (L' x) eqn:E'; rewrite E'.
       + rewrite -fhas_fsubmap in H.
         specialize (H (x, s)).
@@ -200,7 +202,8 @@ Section MAC.
       apply r_get_remember_lhs => L.
       apply r_get_remember_rhs => L'.
       ssprove_rem_rel 1%N => [[/eqP H' H]].
-      destruct L as [L|], L' as [L'|] => //=; [| apply r_fail ].
+      destruct L as [L|], L' as [L'|] => //=; [| apply: r_sample_null ].
+      apply: r_matchSome_lhs. apply: r_matchSome_rhs.
       destruct (L' x) eqn:E'; rewrite E'.
       + rewrite -fhas_fsubmap in H.
         specialize (H (x, s)).
@@ -247,9 +250,8 @@ Section MAC.
     - ssp_simpl. ssp_refl.
     - destruct arg as [x y].
       ssp_simpl.
-      ssprove_sync_eq => L.
-      ssprove_sync_eq => HL.
-      destruct L as [L|] => //= {HL}.
+      ssprove_sync_eq => oL.
+      apply r_matchSome => L {oL}_.
       destruct (L x) eqn:E; rewrite E; ssp_ret.
     - ssp_refl.
   Qed.
